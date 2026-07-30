@@ -1,0 +1,46 @@
+====================================================================
+ PDF Signer Pro — 3 archivos que debes añadir a esta carpeta (js/lib)
+====================================================================
+
+Mi entorno de trabajo no tiene acceso a internet para descargar
+binarios de terceros, así que no pude incluir aquí las librerías
+PDF.js y pdf-lib directamente. TODO el resto de la aplicación
+(HTML, CSS, JS, íconos, manifest, service worker) está 100% completo
+y funcionando. Solo faltan estos 3 archivos, que son de código
+abierto y gratuitos:
+
+1. pdf.min.js
+2. pdf.worker.min.js
+3. pdf-lib.min.js
+
+PASO A PASO (2 minutos):
+
+1) Descarga estos 3 enlaces (clic derecho > Guardar enlace como...,
+   o ábrelos y usa Ctrl/Cmd+S):
+
+   https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.6.347/pdf.min.js
+   https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.6.347/pdf.worker.min.js
+   https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js
+
+2) Coloca los 3 archivos descargados dentro de esta misma carpeta
+   (js/lib/), respetando exactamente esos nombres.
+
+3) ¡Listo! Sube el proyecto a GitHub Pages tal cual. La app ya
+   está programada para buscarlos en "js/lib/..." y el
+   service-worker.js ya los tiene en la lista de caché offline,
+   así que en cuanto los agregues, todo funcionará 100% sin
+   conexión, igual que el resto de la app.
+
+Notas:
+- Puedes usar versiones más recientes si prefieres (por ejemplo
+  la última de https://cdnjs.com/libraries/pdf.js o
+  https://cdnjs.com/libraries/pdf-lib), simplemente respeta los
+  mismos 3 nombres de archivo.
+- No necesitas Node.js, npm, ni ninguna build: son archivos
+  JavaScript ya compilados, listos para usar directamente en
+  el navegador.
+- Ambas librerías son de código abierto (Apache 2.0 / MIT) y
+  seguras para uso comercial.
+
+Una vez agregados estos archivos, borra este LEEME si quieres,
+no es necesario para el funcionamiento de la app.
