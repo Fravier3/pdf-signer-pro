@@ -61,8 +61,10 @@ PDFSignerPro/
   archivo y úsalo con `<i data-icon="nombre"></i>` o `UI.icon("nombre")`.
 - **Paleta**: los colores viven en las variables de `css/style.css`; los
   tonos auxiliares se derivan de ellas con `color-mix()`.
-- Al cambiar cualquier archivo, sube `CACHE_NAME` en `service-worker.js`
-  para que los dispositivos con la app instalada reciban la actualización.
+- **Actualizaciones**: al cambiar cualquier archivo, sube `CACHE_NAME` en
+  `service-worker.js`. Con eso, las apps instaladas descargan la versión
+  nueva y se recargan solas al abrirse o al volver a primer plano (si hay un
+  PDF abierto, esperan a que se cierre para no perder trabajo).
 
 ## Funcionalidades incluidas
 

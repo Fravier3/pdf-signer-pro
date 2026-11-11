@@ -3,7 +3,7 @@
  * una vez instalada. Estrategia: "cache first, network fallback" para
  * el shell de la app, y "network first" para navegación de documento.
  */
-const CACHE_NAME = "pdf-signer-pro-v3";
+const CACHE_NAME = "pdf-signer-pro-v4";
 
 const APP_SHELL = [
   "./",
@@ -47,7 +47,9 @@ self.addEventListener("install", (event) => {
       // para que la instalación no se rompa si falta un archivo opcional.
       return Promise.all(
         APP_SHELL.map((url) =>
-          cache.add(url).catch((err) => console.warn("No se pudo cachear:", url, err))
+          // cache:"reload" salta la caché HTTP del navegador: sin esto, una
+          // actualización podía volver a guardar archivos de la versión anterior.
+          cache.add(new Request(url, { cache: "reload" })).catch((err) => console.warn("No se pudo cachear:", url, err))
         )
       );
     })
