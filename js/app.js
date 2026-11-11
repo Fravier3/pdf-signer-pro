@@ -129,6 +129,7 @@
     // Sin documento ya no tiene sentido "volver al visor" tras guardar una firma.
     pendingReturnToViewer = false;
     showScreen("home");
+    applyUpdateIfSafe();
   }
 
   document.getElementById("btn-viewer-undo").addEventListener("click", () => PlacementManager.undo());
@@ -336,14 +337,52 @@
     UI.enterView(screens.home);
   }
 
+  // -------------------- SERVICE WORKER + AUTO-ACTUALIZACIÓN --------------------
+  // Cuando se publica una versión nueva, el service worker nuevo toma el
+  // control y la app se recarga sola para mostrarla. Si hay un PDF abierto
+  // NO se recarga (se perderían las firmas colocadas): se aplica al cerrarlo.
+  let updatePending = false;
+
+  function applyUpdateIfSafe() {
+    if (!updatePending) return;
+    if (PdfViewer.hasDocument()) {
+      Toast.show("Nueva versión lista: se aplicará al cerrar el documento", 3500);
+      return;
+    }
+    updatePending = false;
+    window.location.reload();
+  }
+
   function registerServiceWorker() {
-    if ("serviceWorker" in navigator) {
-      window.addEventListener("load", () => {
-        navigator.serviceWorker.register("service-worker.js").catch((err) => {
+    if (!("serviceWorker" in navigator)) return;
+    // Solo es una ACTUALIZACIÓN si ya había un service worker controlando la
+    // página; en la primera instalación no hay nada que recargar.
+    const hadController = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (!hadController) return;
+      updatePending = true;
+      applyUpdateIfSafe();
+    });
+
+    const register = () => {
+      navigator.serviceWorker
+        .register("service-worker.js", { updateViaCache: "none" })
+        .then((reg) => {
+          // Las apps instaladas pueden pasar días abiertas en segundo plano:
+          // se busca una versión nueva cada vez que la app vuelve a primer plano.
+          document.addEventListener("visibilitychange", () => {
+            if (document.visibilityState === "visible") reg.update().catch(() => {});
+          });
+        })
+        .catch((err) => {
           console.warn("No se pudo registrar el service worker:", err);
         });
-      });
-    }
+    };
+    // Esta función se ejecuta tras cargar las firmas (asíncrono), cuando el
+    // evento "load" normalmente YA ocurrió: esperar solo a "load" hacía que
+    // el service worker no llegara a registrarse.
+    if (document.readyState === "complete") register();
+    else window.addEventListener("load", register);
   }
 
   init();
