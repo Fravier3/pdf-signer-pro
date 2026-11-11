@@ -11,10 +11,56 @@
     settings: document.getElementById("screen-settings"),
   };
 
+  let currentScreen = "home";
+
   function showScreen(name) {
+    const next = screens[name];
+    const changed = name !== currentScreen || !next.classList.contains("active");
     Object.values(screens).forEach((s) => s.classList.remove("active"));
-    screens[name].classList.add("active");
+    next.classList.add("active");
+    currentScreen = name;
+    document.body.dataset.screen = name;
+
+    // Cada sección abre siempre desde arriba. (El visor de PDF conserva su
+    // posición: es el documento del usuario, no una sección de la app.)
+    next.querySelectorAll("[data-scroll]").forEach((el) => {
+      el.scrollTop = 0;
+    });
+
+    updateNav(name);
+    UI.syncSliders(!changed);
+    if (changed) UI.enterView(next);
   }
+
+  // -------------------- MENÚ (lateral / barra inferior) --------------------
+  const navButtons = Array.from(document.querySelectorAll("#nav-items .nav-item"));
+
+  function updateNav(name) {
+    // "Documento" solo existe mientras haya un PDF abierto.
+    document.getElementById("nav-document").hidden = !PdfViewer.hasDocument();
+    navButtons.forEach((btn) => {
+      const on = btn.dataset.nav === name;
+      btn.classList.toggle("active", on);
+      if (on) btn.setAttribute("aria-current", "page");
+      else btn.removeAttribute("aria-current");
+    });
+  }
+
+  const navHandlers = {
+    home: () => showScreen("home"),
+    viewer: () => showScreen("viewer"),
+    signatures: async () => {
+      await SignaturesUI.refresh();
+      showScreen("signatures");
+    },
+    newSignature: () => {
+      if (currentScreen !== "newSignature") openNewSignatureScreen();
+    },
+    settings: () => showScreen("settings"),
+  };
+  navButtons.forEach((btn) => {
+    btn.addEventListener("click", () => navHandlers[btn.dataset.nav]());
+  });
 
   // -------------------- NAVEGACIÓN --------------------
   document.getElementById("btn-my-signatures").addEventListener("click", async () => {
@@ -80,10 +126,23 @@
   function closeDocumentToHome() {
     PdfViewer.reset();
     PlacementManager.reset();
+    // Sin documento ya no tiene sentido "volver al visor" tras guardar una firma.
+    pendingReturnToViewer = false;
     showScreen("home");
   }
 
   document.getElementById("btn-viewer-undo").addEventListener("click", () => PlacementManager.undo());
+
+  // -------------------- BARRA DEL VISOR (fuera del documento) --------------------
+  document.getElementById("btn-zoom-in").addEventListener("click", () => PdfViewer.zoomIn());
+  document.getElementById("btn-zoom-out").addEventListener("click", () => PdfViewer.zoomOut());
+  document.getElementById("btn-zoom-reset").addEventListener("click", () => PdfViewer.resetZoom());
+  PdfViewer.setOnZoomChange((scale) => {
+    document.getElementById("btn-zoom-reset").textContent = Math.round(scale * 100) + "%";
+  });
+  document.getElementById("dock-insert-signature").addEventListener("click", () => handleInsertSignatureFlow());
+  document.getElementById("dock-save-pdf").addEventListener("click", () => PdfExporter.saveToDevice());
+  document.getElementById("dock-share-pdf").addEventListener("click", () => PdfExporter.shareFile());
 
   // -------------------- BOTTOM SHEET: ACCIONES --------------------
   document.getElementById("action-insert-signature").addEventListener("click", async () => {
@@ -128,12 +187,24 @@
   }
 
   // -------------------- NUEVA FIRMA: TABS --------------------
+  function setActiveTab(tab) {
+    document.querySelectorAll(".tab-btn").forEach((b) => {
+      const on = b.dataset.tab === tab;
+      b.classList.toggle("active", on);
+      b.setAttribute("aria-selected", on ? "true" : "false");
+    });
+    document.querySelectorAll(".tab-panel").forEach((p) => p.classList.remove("active"));
+    const panel = document.getElementById(`tab-${tab}`);
+    panel.classList.add("active");
+    UI.syncSliders();
+    return panel;
+  }
+
   document.querySelectorAll(".tab-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
-      document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
-      document.querySelectorAll(".tab-panel").forEach((p) => p.classList.remove("active"));
-      btn.classList.add("active");
-      document.getElementById(`tab-${btn.dataset.tab}`).classList.add("active");
+      if (btn.classList.contains("active")) return;
+      const panel = setActiveTab(btn.dataset.tab);
+      UI.animate(panel, { opacity: [0, 1], y: [10, 0] }, { duration: 0.28, ease: "easeOut" });
       if (btn.dataset.tab === "draw") {
         setTimeout(() => DrawSignature.resizeCanvasToDisplaySize(), 50);
       }
@@ -143,6 +214,13 @@
   // -------------------- IMPORTAR PNG --------------------
   let importedSignature = null;
   const inputImportPng = document.getElementById("input-import-png");
+  // La zona de importación es un <label>; con teclado se activa con Enter/Espacio.
+  document.querySelector(".import-drop").addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      inputImportPng.click();
+    }
+  });
   inputImportPng.addEventListener("change", async () => {
     const file = inputImportPng.files[0];
     if (!file) return;
@@ -153,6 +231,7 @@
       const previewImg = document.getElementById("import-preview");
       previewImg.src = result.dataUrl;
       previewWrap.hidden = false;
+      UI.animate(previewWrap, { opacity: [0, 1], scale: [0.97, 1] }, { duration: 0.3, ease: "easeOut" });
     } catch (err) {
       Toast.show(err.message || "No se pudo importar la imagen");
     }
@@ -212,15 +291,18 @@
     document.getElementById("import-preview-wrap").hidden = true;
     document.getElementById("input-import-png").value = "";
     document.getElementById("signature-name-input").value = "";
-    document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
-    document.querySelectorAll(".tab-panel").forEach((p) => p.classList.remove("active"));
-    document.querySelector('.tab-btn[data-tab="draw"]').classList.add("active");
-    document.getElementById("tab-draw").classList.add("active");
+    setActiveTab("draw");
   }
 
   // -------------------- CONFIGURACIÓN --------------------
   document.getElementById("btn-clear-signatures").addEventListener("click", async () => {
-    const ok = window.confirm("¿Borrar todas las firmas guardadas? Esta acción no se puede deshacer.");
+    const ok = await UI.Dialog.confirm({
+      title: "¿Borrar todas las firmas?",
+      message: "Se eliminarán todas las firmas guardadas. Esta acción no se puede deshacer.",
+      icon: "trash-2",
+      danger: true,
+      confirmText: "Borrar todo",
+    });
     if (!ok) return;
     await SignatureDB.clearAll();
     await SignaturesUI.refresh();
@@ -228,13 +310,30 @@
   });
 
   // -------------------- INIT --------------------
+  function hideSplash() {
+    const splash = document.getElementById("splash");
+    setTimeout(() => {
+      Promise.resolve(UI.animate(splash, { opacity: 0 }, { duration: 0.6, ease: "easeOut" })).then(() => {
+        splash.hidden = true;
+      });
+    }, 1100);
+  }
+
   async function init() {
+    UI.init();
+    UI.registerSlider(document.getElementById("nav-items"), ".nav-item.active");
+    UI.registerSlider(document.querySelector(".new-signature-tabs"), ".tab-btn.active");
+    UI.registerSlider(document.getElementById("theme-segmented"), ".segmented-btn.active");
+    hideSplash();
     ThemeManager.init();
     BottomSheet.init();
     SignaturePickerSheet.init();
     DrawSignature.init();
     await SignaturesUI.refresh();
     registerServiceWorker();
+    updateNav(currentScreen);
+    UI.syncSliders(true);
+    UI.enterView(screens.home);
   }
 
   function registerServiceWorker() {

@@ -35,6 +35,7 @@ PDFSignerPro/
 ├── icons/                  (iconos PWA en todos los tamaños)
 ├── js/
 │   ├── app.js               → controlador principal / navegación
+│   ├── ui.js                → capa de interfaz: animaciones (Motion), iconos (Lucide), diálogos
 │   ├── db.js                → almacenamiento de firmas (IndexedDB)
 │   ├── theme.js              → modo claro / oscuro / automático
 │   ├── toast.js               → notificaciones y loader
@@ -44,8 +45,24 @@ PDFSignerPro/
 │   ├── pdfViewer.js                → visor PDF.js + gestos de zoom/pan
 │   ├── placement.js                 → mover/escalar/rotar/duplicar firmas
 │   ├── exportPdf.js                  → exportar PDF final con pdf-lib
-│   └── lib/                           → PDF.js y pdf-lib (ver LEEME_IMPORTANTE.txt)
+│   └── lib/                           → PDF.js, pdf-lib, Motion y subconjunto de iconos Lucide
 ```
+
+## Interfaz
+
+- **Navegación**: menú lateral en escritorio y barra inferior flotante en
+  teléfono, con indicador deslizante. Cada sección tiene su propio scroll y
+  abre siempre desde arriba.
+- **Animación**: [Motion](https://motion.dev) (MIT), incluida en
+  `js/lib/motion.min.js` para funcionar offline. Se respeta
+  `prefers-reduced-motion`.
+- **Iconos**: [Lucide](https://lucide.dev) (ISC). Solo los iconos usados,
+  en `js/lib/lucide-icons.js`. Para añadir uno, copia su contenido SVG a ese
+  archivo y úsalo con `<i data-icon="nombre"></i>` o `UI.icon("nombre")`.
+- **Paleta**: los colores viven en las variables de `css/style.css`; los
+  tonos auxiliares se derivan de ellas con `color-mix()`.
+- Al cambiar cualquier archivo, sube `CACHE_NAME` en `service-worker.js`
+  para que los dispositivos con la app instalada reciban la actualización.
 
 ## Funcionalidades incluidas
 

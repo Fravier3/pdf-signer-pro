@@ -16,8 +16,11 @@ const ThemeManager = (() => {
 
   function updateSegmentedUI(pref) {
     document.querySelectorAll("#theme-segmented .segmented-btn").forEach((btn) => {
-      btn.classList.toggle("active", btn.dataset.theme === pref);
+      const on = btn.dataset.theme === pref;
+      btn.classList.toggle("active", on);
+      btn.setAttribute("aria-pressed", on ? "true" : "false");
     });
+    UI.syncSliders();
   }
 
   function get() {

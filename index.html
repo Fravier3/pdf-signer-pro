@@ -17,10 +17,10 @@
 
 <link rel="stylesheet" href="css/style.css" />
 </head>
-<body>
+<body data-screen="home">
 
 <!-- ======================= SPLASH ======================= -->
-<div id="splash" class="splash">
+<div id="splash" class="splash" aria-hidden="true">
   <div class="splash-logo">
     <svg viewBox="0 0 100 100" width="72" height="72">
       <path d="M18 55 Q35 30 50 55 T82 50" fill="none" stroke="white" stroke-width="7" stroke-linecap="round"/>
@@ -30,238 +30,407 @@
   <div class="splash-title">PDF Signer Pro</div>
 </div>
 
+<!-- Fondo ambiental (derivado de los colores de acento) para que el cristal tenga algo que desenfocar -->
+<div class="ambient" aria-hidden="true"></div>
+
+<div class="app-shell">
+
+<!-- ======================= NAVEGACIÓN (lateral en escritorio, barra flotante en móvil) ======================= -->
+<nav id="app-nav" class="app-nav glass" aria-label="Secciones">
+  <div class="nav-brand">
+    <span class="nav-logo" aria-hidden="true">
+      <svg viewBox="0 0 100 100"><path d="M18 55 Q35 30 50 55 T82 50" fill="none" stroke="white" stroke-width="8" stroke-linecap="round"/><circle cx="82" cy="50" r="5" fill="white"/></svg>
+    </span>
+    <span class="nav-brand-name">PDF Signer <span class="pro-badge">Pro</span></span>
+  </div>
+  <div class="nav-items" id="nav-items">
+    <button type="button" class="nav-item active" data-nav="home" aria-current="page">
+      <i data-icon="house"></i><span>Inicio</span>
+    </button>
+    <button type="button" class="nav-item" data-nav="viewer" id="nav-document" hidden>
+      <i data-icon="file-text"></i><span>Documento</span>
+    </button>
+    <button type="button" class="nav-item" data-nav="signatures">
+      <i data-icon="signature"></i><span>Firmas</span>
+    </button>
+    <button type="button" class="nav-item" data-nav="newSignature">
+      <i data-icon="pen-line"></i><span>Nueva</span>
+    </button>
+    <button type="button" class="nav-item" data-nav="settings">
+      <i data-icon="settings"></i><span>Ajustes</span>
+    </button>
+  </div>
+  <div class="nav-foot">
+    <i data-icon="shield-check"></i>
+    <span>100% local · sin servidores</span>
+  </div>
+</nav>
+
+<div class="app-stage">
+
 <!-- ======================= HOME ======================= -->
 <main id="screen-home" class="screen active">
   <header class="topbar">
-    <h1>PDF Signer <span class="pro-badge">Pro</span></h1>
-    <button id="btn-open-settings" class="icon-btn" aria-label="Configuración">
-      <svg viewBox="0 0 24 24"><path d="M12 15.5a3.5 3.5 0 100-7 3.5 3.5 0 000 7z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M19.4 13.5a1.7 1.7 0 00.3 1.9l.1.1a2 2 0 11-2.9 2.9l-.1-.1a1.7 1.7 0 00-1.9-.3 1.7 1.7 0 00-1 1.6V20a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1-1.6 1.7 1.7 0 00-1.9.3l-.1.1a2 2 0 11-2.9-2.9l.1-.1a1.7 1.7 0 00.3-1.9 1.7 1.7 0 00-1.6-1H4a2 2 0 110-4h.1a1.7 1.7 0 001.6-1 1.7 1.7 0 00-.3-1.9l-.1-.1a2 2 0 112.9-2.9l.1.1a1.7 1.7 0 001.9.3H10a1.7 1.7 0 001-1.6V4a2 2 0 114 0v.1a1.7 1.7 0 001 1.6 1.7 1.7 0 001.9-.3l.1-.1a2 2 0 112.9 2.9l-.1.1a1.7 1.7 0 00-.3 1.9V10a1.7 1.7 0 001.6 1H20a2 2 0 110 4h-.1a1.7 1.7 0 00-1.6 1z" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+    <div class="topbar-title">
+      <span class="title-icon"><i data-icon="house"></i></span>
+      <h1>PDF Signer <span class="pro-badge">Pro</span></h1>
+    </div>
+    <button id="btn-open-settings" class="icon-btn only-mobile" aria-label="Configuración">
+      <i data-icon="settings"></i>
     </button>
   </header>
 
-  <section class="home-grid">
-    <button class="home-card home-card-primary" id="btn-open-pdf">
-      <div class="home-card-icon">
-        <svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v15a1 1 0 01-1 1H6a1 1 0 01-1-1V3a1 1 0 011-1z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M15 2v5h5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8.5 14.5l3 3 4-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </div>
-      <div class="home-card-text">
-        <span class="home-card-title">Abrir PDF</span>
-        <span class="home-card-sub">Selecciona un documento para firmar</span>
-      </div>
-    </button>
+  <div class="screen-body" data-scroll>
+    <div class="container">
+      <section class="home-grid">
+        <button class="home-card home-card-primary shine" id="btn-open-pdf" data-enter>
+          <div class="home-card-icon"><i data-icon="file-up"></i></div>
+          <div class="home-card-text">
+            <span class="home-card-title">Abrir PDF</span>
+            <span class="home-card-sub">Selecciona un documento para firmar</span>
+          </div>
+        </button>
 
-    <button class="home-card" id="btn-my-signatures">
-      <div class="home-card-icon">
-        <svg viewBox="0 0 24 24"><path d="M4 17c3-6 5-2 7-6s4-4 6-2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M4 20h16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
-      </div>
-      <div class="home-card-text">
-        <span class="home-card-title">Mis Firmas</span>
-        <span class="home-card-sub">Gestiona tus firmas guardadas</span>
-      </div>
-    </button>
+        <button class="home-card glass shine" id="btn-my-signatures" data-enter>
+          <div class="home-card-icon"><i data-icon="signature"></i></div>
+          <div class="home-card-text">
+            <span class="home-card-title">Mis Firmas <span class="count-badge num" id="home-sig-count" hidden>0</span></span>
+            <span class="home-card-sub">Gestiona tus firmas guardadas</span>
+          </div>
+        </button>
 
-    <button class="home-card" id="btn-new-signature">
-      <div class="home-card-icon">
-        <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-      </div>
-      <div class="home-card-text">
-        <span class="home-card-title">Nueva Firma</span>
-        <span class="home-card-sub">Dibuja o importa una imagen PNG</span>
-      </div>
-    </button>
+        <button class="home-card glass shine" id="btn-new-signature" data-enter>
+          <div class="home-card-icon"><i data-icon="pen-line"></i></div>
+          <div class="home-card-text">
+            <span class="home-card-title">Nueva Firma</span>
+            <span class="home-card-sub">Dibuja o importa una imagen PNG</span>
+          </div>
+        </button>
 
-    <button class="home-card" id="btn-settings">
-      <div class="home-card-icon">
-        <svg viewBox="0 0 24 24"><path d="M12 15.5a3.5 3.5 0 100-7 3.5 3.5 0 000 7z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M19.4 13.5a1.7 1.7 0 00.3 1.9l.1.1a2 2 0 11-2.9 2.9l-.1-.1a1.7 1.7 0 00-1.9-.3 1.7 1.7 0 00-1 1.6V20a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1-1.6 1.7 1.7 0 00-1.9.3l-.1.1a2 2 0 11-2.9-2.9l.1-.1a1.7 1.7 0 00.3-1.9 1.7 1.7 0 00-1.6-1H4a2 2 0 110-4h.1a1.7 1.7 0 001.6-1 1.7 1.7 0 00-.3-1.9l-.1-.1a2 2 0 112.9-2.9l.1.1a1.7 1.7 0 001.9.3H10a1.7 1.7 0 001-1.6V4a2 2 0 114 0v.1a1.7 1.7 0 001 1.6 1.7 1.7 0 001.9-.3l.1-.1a2 2 0 112.9 2.9l-.1.1a1.7 1.7 0 00-.3 1.9V10a1.7 1.7 0 001.6 1H20a2 2 0 110 4h-.1a1.7 1.7 0 00-1.6 1z" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>
-      </div>
-      <div class="home-card-text">
-        <span class="home-card-title">Configuración</span>
-        <span class="home-card-sub">Apariencia y datos</span>
-      </div>
-    </button>
-  </section>
+        <button class="home-card glass shine" id="btn-settings" data-enter>
+          <div class="home-card-icon"><i data-icon="settings"></i></div>
+          <div class="home-card-text">
+            <span class="home-card-title">Configuración</span>
+            <span class="home-card-sub">Apariencia y datos</span>
+          </div>
+        </button>
+      </section>
 
-  <p class="home-footnote">100% local · Ningún archivo sale de tu dispositivo</p>
+      <section class="panel glass" data-enter aria-labelledby="home-steps-title">
+        <div class="panel-head">
+          <span class="panel-icon"><i data-icon="layers"></i></span>
+          <h2 class="panel-title" id="home-steps-title">Cómo funciona</h2>
+        </div>
+        <ol class="steps">
+          <li><span class="step-icon"><i data-icon="file-up"></i></span><span><b>Abre</b> un PDF desde tu dispositivo</span></li>
+          <li><span class="step-icon"><i data-icon="signature"></i></span><span><b>Coloca</b> tu firma donde la necesites</span></li>
+          <li><span class="step-icon"><i data-icon="save"></i></span><span><b>Guarda</b> o comparte el PDF firmado</span></li>
+        </ol>
+      </section>
+
+      <p class="home-footnote" data-enter><i data-icon="shield-check"></i> 100% local · Ningún archivo sale de tu dispositivo</p>
+    </div>
+  </div>
 </main>
 
 <!-- ======================= VISOR PDF ======================= -->
 <section id="screen-viewer" class="screen">
   <header class="topbar viewer-topbar">
-    <button class="icon-btn" id="btn-close-viewer" aria-label="Cerrar">
-      <svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <button class="icon-btn" id="btn-close-viewer" aria-label="Cerrar documento">
+      <i data-icon="chevron-left"></i>
     </button>
     <div class="viewer-title">
-      <span id="viewer-filename">Documento.pdf</span>
-      <span id="viewer-page-indicator" class="page-indicator">1 / 1</span>
+      <span class="viewer-file"><i data-icon="file-text"></i><span id="viewer-filename">Documento.pdf</span></span>
+      <span id="viewer-page-indicator" class="page-indicator num" aria-label="Página actual">1 / 1</span>
     </div>
     <button class="icon-btn" id="btn-viewer-undo" aria-label="Deshacer" disabled>
-      <svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 9h10.5A5.5 5.5 0 0120 14.5v0A5.5 5.5 0 0114.5 20H11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <i data-icon="undo-2"></i>
     </button>
   </header>
 
-  <div id="pdf-scroll" class="pdf-scroll">
-    <div id="pdf-pages" class="pdf-pages"></div>
+  <!-- El documento ocupa todo el visor; nada se superpone al contenido -->
+  <div id="pdf-scroll" class="pdf-scroll" tabindex="0" aria-label="Documento PDF">
+    <div id="pdf-sizer" class="pdf-sizer">
+      <div id="pdf-pages" class="pdf-pages"></div>
+    </div>
   </div>
 
-  <!-- FAB -->
-  <button id="fab-main" class="fab" aria-label="Acciones">
-    <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
-  </button>
+  <!-- Barra de herramientas FUERA del documento -->
+  <div class="viewer-dock" role="toolbar" aria-label="Herramientas del documento">
+    <div class="dock-group zoom-group">
+      <button class="icon-btn only-desktop" id="btn-zoom-out" aria-label="Alejar">
+        <i data-icon="zoom-out"></i>
+      </button>
+      <button class="zoom-level num" id="btn-zoom-reset" aria-label="Restablecer zoom al 100 %" title="Restablecer zoom">100%</button>
+      <button class="icon-btn only-desktop" id="btn-zoom-in" aria-label="Acercar">
+        <i data-icon="zoom-in"></i>
+      </button>
+    </div>
+    <div class="dock-group dock-actions">
+      <button class="btn primary shine dock-main" id="dock-insert-signature">
+        <i data-icon="signature"></i><span>Insertar firma</span>
+      </button>
+      <button class="icon-btn" id="dock-save-pdf" aria-label="Guardar PDF" title="Guardar PDF">
+        <i data-icon="save"></i>
+      </button>
+      <button class="icon-btn" id="dock-share-pdf" aria-label="Compartir PDF" title="Compartir PDF">
+        <i data-icon="share-2"></i>
+      </button>
+      <button class="icon-btn" id="fab-main" aria-label="Más acciones" aria-haspopup="dialog" title="Más acciones">
+        <i data-icon="ellipsis"></i>
+      </button>
+    </div>
+  </div>
 
   <!-- Zafacón: aparece solo mientras arrastras una firma; suéltala aquí para eliminarla -->
   <div id="trash-dropzone" class="trash-dropzone" aria-hidden="true">
-    <svg viewBox="0 0 24 24" width="26" height="26"><path d="M4 7h16M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2m2 0-1 13a1 1 0 01-1 1H8a1 1 0 01-1-1L6 7h12z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <i data-icon="trash-2"></i>
   </div>
 </section>
 
 <!-- ======================= MIS FIRMAS ======================= -->
 <section id="screen-signatures" class="screen">
   <header class="topbar">
-    <button class="icon-btn" id="btn-back-from-signatures" aria-label="Atrás">
-      <svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <button class="icon-btn only-mobile" id="btn-back-from-signatures" aria-label="Atrás">
+      <i data-icon="chevron-left"></i>
     </button>
-    <h1>Mis Firmas</h1>
-    <button class="icon-btn" id="btn-add-signature-top" aria-label="Añadir firma">
-      <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    <div class="topbar-title">
+      <span class="title-icon"><i data-icon="signature"></i></span>
+      <h1>Mis Firmas</h1>
+    </div>
+    <button class="icon-btn" id="btn-add-signature-top" aria-label="Añadir firma" title="Añadir firma">
+      <i data-icon="plus"></i>
     </button>
   </header>
-  <div id="signatures-empty" class="empty-state">
-    <div class="empty-icon">
-      <svg viewBox="0 0 24 24" width="52" height="52"><path d="M4 17c3-6 5-2 7-6s4-4 6-2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+
+  <div class="screen-body" data-scroll>
+    <div class="container">
+      <div id="signatures-empty" class="empty-state panel glass" data-enter>
+        <div class="empty-icon"><i data-icon="signature"></i></div>
+        <p class="empty-title">Aún no tienes firmas guardadas</p>
+        <p class="empty-sub">Dibuja una con el dedo o importa un PNG con fondo transparente.</p>
+        <button class="btn primary shine" id="btn-empty-add-signature"><i data-icon="plus"></i><span>Crear mi primera firma</span></button>
+      </div>
+
+      <section id="signatures-list" class="panel glass table-panel" data-enter hidden aria-labelledby="signatures-table-title">
+        <div class="panel-head">
+          <span class="panel-icon"><i data-icon="layers"></i></span>
+          <h2 class="panel-title" id="signatures-table-title">Firmas guardadas</h2>
+          <span class="count-badge num" id="signatures-count">0</span>
+        </div>
+        <table class="data-table" id="signatures-table">
+          <thead>
+            <tr>
+              <th scope="col" class="col-thumb">Firma</th>
+              <th scope="col" class="col-name" data-sort="name">
+                <button type="button" class="th-sort no-press">Nombre<span class="sort-icon"></span></button>
+              </th>
+              <th scope="col" class="col-date col-secondary" data-sort="createdAt">
+                <button type="button" class="th-sort no-press">Creada<span class="sort-icon"></span></button>
+              </th>
+              <th scope="col" class="col-size col-secondary" data-sort="size">
+                <button type="button" class="th-sort no-press">Tamaño<span class="sort-icon"></span></button>
+              </th>
+              <th scope="col" class="col-actions"><span class="sr-only">Acciones</span></th>
+            </tr>
+          </thead>
+          <tbody id="signatures-tbody"></tbody>
+        </table>
+      </section>
     </div>
-    <p>Aún no tienes firmas guardadas</p>
-    <button class="pill-btn" id="btn-empty-add-signature">Crear mi primera firma</button>
   </div>
-  <div id="signatures-list" class="signatures-list"></div>
 </section>
 
 <!-- ======================= NUEVA FIRMA ======================= -->
 <section id="screen-new-signature" class="screen">
   <header class="topbar">
-    <button class="icon-btn" id="btn-close-new-signature" aria-label="Cerrar">
-      <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    <button class="icon-btn only-mobile" id="btn-close-new-signature" aria-label="Cerrar">
+      <i data-icon="x"></i>
     </button>
-    <h1>Nueva Firma</h1>
-    <span style="width:40px"></span>
+    <div class="topbar-title">
+      <span class="title-icon"><i data-icon="pen-line"></i></span>
+      <h1>Nueva Firma</h1>
+    </div>
+    <span class="topbar-spacer only-mobile" aria-hidden="true"></span>
   </header>
 
-  <div class="new-signature-tabs">
-    <button class="tab-btn active" data-tab="draw">Dibujar</button>
-    <button class="tab-btn" data-tab="import">Importar PNG</button>
-  </div>
+  <div class="screen-body screen-body-fill" data-scroll>
+    <div class="container container-narrow">
+      <div class="new-signature-tabs segmented" role="tablist" aria-label="Método" data-enter>
+        <button class="tab-btn active" data-tab="draw" role="tab" aria-selected="true" aria-controls="tab-draw" id="tabbtn-draw">
+          <i data-icon="brush"></i><span>Dibujar</span>
+        </button>
+        <button class="tab-btn" data-tab="import" role="tab" aria-selected="false" aria-controls="tab-import" id="tabbtn-import">
+          <i data-icon="image-up"></i><span>Importar PNG</span>
+        </button>
+      </div>
 
-  <div id="tab-draw" class="tab-panel active">
-    <div class="draw-pad-wrap">
-      <canvas id="draw-canvas"></canvas>
-      <div class="draw-hint">Dibuja tu firma con el dedo</div>
-    </div>
-    <div class="draw-controls">
-      <button class="pill-btn secondary" id="btn-clear-draw">Limpiar</button>
-      <input id="draw-color" type="color" value="#0b0c10" class="color-swatch" title="Color de tinta" />
-    </div>
-  </div>
+      <div id="tab-draw" class="tab-panel panel glass active" role="tabpanel" aria-labelledby="tabbtn-draw" data-enter>
+        <div class="panel-head">
+          <span class="panel-icon"><i data-icon="brush"></i></span>
+          <h2 class="panel-title">Dibuja tu firma</h2>
+        </div>
+        <div class="draw-pad-wrap">
+          <canvas id="draw-canvas" aria-label="Área para dibujar la firma"></canvas>
+          <div class="draw-hint">Dibuja tu firma con el dedo</div>
+        </div>
+        <div class="draw-controls">
+          <button class="btn secondary" id="btn-clear-draw"><i data-icon="eraser"></i><span>Limpiar</span></button>
+          <label class="ink-picker">
+            <span class="field-label">Tinta</span>
+            <input id="draw-color" type="color" value="#0b0c10" class="color-swatch" title="Color de tinta" aria-label="Color de tinta" />
+          </label>
+        </div>
+      </div>
 
-  <div id="tab-import" class="tab-panel">
-    <label for="input-import-png" class="import-drop">
-      <svg viewBox="0 0 24 24" width="40" height="40"><path d="M12 16V4M12 4l-4 4M12 4l4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 16v3a2 2 0 002 2h12a2 2 0 002-2v-3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-      <span>Toca para elegir una imagen PNG</span>
-      <span class="import-drop-sub">Con fondo transparente para mejor resultado</span>
-    </label>
-    <input type="file" id="input-import-png" accept="image/png" hidden />
-    <div id="import-preview-wrap" class="import-preview-wrap" hidden>
-      <img id="import-preview" alt="Vista previa" />
-    </div>
-  </div>
+      <div id="tab-import" class="tab-panel panel glass" role="tabpanel" aria-labelledby="tabbtn-import">
+        <div class="panel-head">
+          <span class="panel-icon"><i data-icon="image-up"></i></span>
+          <h2 class="panel-title">Importa una imagen</h2>
+        </div>
+        <label for="input-import-png" class="import-drop pressable" tabindex="0" role="button">
+          <i data-icon="upload"></i>
+          <span class="import-drop-title">Toca para elegir una imagen PNG</span>
+          <span class="import-drop-sub">Con fondo transparente para mejor resultado</span>
+        </label>
+        <input type="file" id="input-import-png" accept="image/png" hidden />
+        <div id="import-preview-wrap" class="import-preview-wrap" hidden>
+          <img id="import-preview" alt="Vista previa" />
+        </div>
+      </div>
 
-  <div class="new-signature-footer">
-    <input type="text" id="signature-name-input" class="text-input" placeholder="Nombre de la firma (ej. Firma personal)" />
-    <button class="pill-btn primary" id="btn-save-signature">Guardar firma</button>
+      <div class="new-signature-footer panel glass" data-enter>
+        <div class="panel-head">
+          <span class="panel-icon"><i data-icon="tag"></i></span>
+          <h2 class="panel-title"><label for="signature-name-input">Nombre de la firma</label></h2>
+        </div>
+        <div class="footer-row">
+          <input type="text" id="signature-name-input" class="text-input" placeholder="Ej. Firma personal" autocomplete="off" />
+          <button class="btn primary shine" id="btn-save-signature"><i data-icon="check"></i><span>Guardar firma</span></button>
+        </div>
+      </div>
+    </div>
   </div>
 </section>
 
 <!-- ======================= CONFIGURACIÓN ======================= -->
 <section id="screen-settings" class="screen">
   <header class="topbar">
-    <button class="icon-btn" id="btn-back-from-settings" aria-label="Atrás">
-      <svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <button class="icon-btn only-mobile" id="btn-back-from-settings" aria-label="Atrás">
+      <i data-icon="chevron-left"></i>
     </button>
-    <h1>Configuración</h1>
-    <span style="width:40px"></span>
+    <div class="topbar-title">
+      <span class="title-icon"><i data-icon="settings"></i></span>
+      <h1>Configuración</h1>
+    </div>
+    <span class="topbar-spacer only-mobile" aria-hidden="true"></span>
   </header>
 
-  <div class="settings-group">
-    <div class="settings-group-title">Apariencia</div>
-    <div class="segmented" id="theme-segmented">
-      <button class="segmented-btn" data-theme="light">Claro</button>
-      <button class="segmented-btn" data-theme="dark">Oscuro</button>
-      <button class="segmented-btn" data-theme="auto">Automático</button>
-    </div>
-  </div>
+  <div class="screen-body" data-scroll>
+    <div class="container settings-grid">
+      <section class="settings-group panel glass" data-enter>
+        <div class="panel-head">
+          <span class="panel-icon"><i data-icon="palette"></i></span>
+          <h2 class="panel-title settings-group-title" id="theme-label">Apariencia</h2>
+        </div>
+        <div class="segmented" id="theme-segmented" role="group" aria-labelledby="theme-label">
+          <button class="segmented-btn" data-theme="light"><i data-icon="sun"></i><span>Claro</span></button>
+          <button class="segmented-btn" data-theme="dark"><i data-icon="moon"></i><span>Oscuro</span></button>
+          <button class="segmented-btn" data-theme="auto"><i data-icon="sun-moon"></i><span>Automático</span></button>
+        </div>
+      </section>
 
-  <div class="settings-group">
-    <div class="settings-group-title">Datos</div>
-    <button class="settings-row danger" id="btn-clear-signatures">
-      <span>Borrar todas las firmas</span>
-      <svg viewBox="0 0 24 24" width="18" height="18"><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2M4 6h16M6 6l1 14a1 1 0 001 1h8a1 1 0 001-1l1-14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    </button>
-  </div>
+      <section class="settings-group panel glass" data-enter>
+        <div class="panel-head">
+          <span class="panel-icon"><i data-icon="database"></i></span>
+          <h2 class="panel-title settings-group-title">Datos</h2>
+        </div>
+        <button class="settings-row danger" id="btn-clear-signatures">
+          <span>Borrar todas las firmas</span>
+          <i data-icon="trash-2"></i>
+        </button>
+      </section>
 
-  <div class="settings-group">
-    <div class="settings-group-title">Información</div>
-    <div class="settings-row static">
-      <span>Versión</span>
-      <span class="settings-row-value">1.0.0</span>
-    </div>
-    <div class="settings-row static">
-      <span>Procesamiento</span>
-      <span class="settings-row-value">100% local</span>
+      <section class="settings-group panel glass" data-enter>
+        <div class="panel-head">
+          <span class="panel-icon"><i data-icon="info"></i></span>
+          <h2 class="panel-title settings-group-title">Información</h2>
+        </div>
+        <dl class="info-list">
+          <div class="settings-row static">
+            <dt>Versión</dt>
+            <dd class="settings-row-value num">1.0.0</dd>
+          </div>
+          <div class="settings-row static">
+            <dt>Procesamiento</dt>
+            <dd class="settings-row-value num">100% local</dd>
+          </div>
+        </dl>
+      </section>
     </div>
   </div>
 </section>
 
+</div><!-- /app-stage -->
+</div><!-- /app-shell -->
+
 <!-- ======================= BOTTOM SHEET (acciones del visor) ======================= -->
 <div id="sheet-overlay" class="sheet-overlay"></div>
-<div id="bottom-sheet" class="bottom-sheet">
-  <div class="sheet-handle"></div>
+<div id="bottom-sheet" class="bottom-sheet glass" role="dialog" aria-modal="true" aria-labelledby="bottom-sheet-title">
+  <div class="sheet-handle" aria-hidden="true"></div>
+  <div class="sheet-head">
+    <span class="panel-icon"><i data-icon="file-text"></i></span>
+    <h2 class="sheet-title" id="bottom-sheet-title">Acciones del documento</h2>
+    <button class="icon-btn sheet-close" id="btn-close-sheet" aria-label="Cerrar menú"><i data-icon="x"></i></button>
+  </div>
   <button class="sheet-action" id="action-insert-signature">
-    <span class="sheet-action-icon">✍️</span> Insertar firma
+    <span class="sheet-action-icon"><i data-icon="signature"></i></span> Insertar firma
   </button>
   <button class="sheet-action" id="action-new-signature">
-    <span class="sheet-action-icon">➕</span> Nueva firma
+    <span class="sheet-action-icon"><i data-icon="plus"></i></span> Nueva firma
   </button>
   <button class="sheet-action" id="action-save-pdf">
-    <span class="sheet-action-icon">💾</span> Guardar PDF
+    <span class="sheet-action-icon"><i data-icon="save"></i></span> Guardar PDF
   </button>
   <button class="sheet-action" id="action-share-pdf">
-    <span class="sheet-action-icon">📤</span> Compartir PDF
+    <span class="sheet-action-icon"><i data-icon="share-2"></i></span> Compartir PDF
   </button>
   <button class="sheet-action destructive" id="action-close-doc">
-    <span class="sheet-action-icon">✕</span> Cerrar documento
+    <span class="sheet-action-icon"><i data-icon="x"></i></span> Cerrar documento
   </button>
 </div>
 
 <!-- ======================= PICKER DE FIRMAS PARA INSERTAR ======================= -->
 <div id="sheet-overlay-2" class="sheet-overlay"></div>
-<div id="signature-picker-sheet" class="bottom-sheet signature-picker-sheet">
-  <div class="sheet-handle"></div>
-  <div class="sheet-title">Elige una firma para insertar</div>
+<div id="signature-picker-sheet" class="bottom-sheet glass signature-picker-sheet" role="dialog" aria-modal="true" aria-labelledby="picker-sheet-title">
+  <div class="sheet-handle" aria-hidden="true"></div>
+  <div class="sheet-head">
+    <span class="panel-icon"><i data-icon="signature"></i></span>
+    <h2 class="sheet-title" id="picker-sheet-title">Elige una firma para insertar</h2>
+    <button class="icon-btn sheet-close" id="btn-close-picker" aria-label="Cerrar selector"><i data-icon="x"></i></button>
+  </div>
   <div id="signature-picker-list" class="signature-picker-list"></div>
 </div>
 
 <!-- ======================= TOAST ======================= -->
-<div id="toast" class="toast"></div>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
 
 <!-- ======================= LOADER ======================= -->
-<div id="loader" class="loader-overlay" hidden>
-  <div class="loader-spinner"></div>
-  <div id="loader-text" class="loader-text">Procesando…</div>
+<div id="loader" class="loader-overlay" role="alert" aria-busy="true" hidden>
+  <div class="loader-card">
+    <div class="loader-spinner"></div>
+    <div id="loader-text" class="loader-text">Procesando…</div>
+  </div>
 </div>
 
-<!-- Librerías (offline, ver /js/lib/README.md) -->
+<!-- Librerías (offline, incluidas en /js/lib) -->
 <script src="js/lib/pdf.min.js"></script>
 <script src="js/lib/pdf-lib.min.js"></script>
+<script src="js/lib/motion.min.js"></script>
+<script src="js/lib/lucide-icons.js"></script>
 
 <!-- App -->
+<script src="js/ui.js"></script>
 <script src="js/db.js"></script>
 <script src="js/theme.js"></script>
 <script src="js/toast.js"></script>
