@@ -74,7 +74,7 @@ const PlacementManager = (() => {
       selectElementById(item.id);
 
       // Desplaza el scroll para que la página sea visible
-      wrapEl.scrollIntoView({ behavior: "smooth", block: "center" });
+      wrapEl.scrollIntoView({ behavior: UI.reduced() ? "auto" : "smooth", block: "center" });
     } catch (err) {
       console.error("[PDF Signer Pro] Error al insertar la firma:", err);
       Toast.show("Ocurrió un error al insertar la firma");
@@ -91,10 +91,10 @@ const PlacementManager = (() => {
     el.dataset.page = pageNum;
     el.innerHTML = `
       <img src="${item.dataUrl}" draggable="false" alt="firma">
-      <div class="sig-handle handle-rotate" title="Rotar"></div>
-      <div class="sig-handle handle-delete" title="Eliminar">✕</div>
-      <div class="sig-handle handle-duplicate" title="Duplicar">⧉</div>
-      <div class="sig-handle handle-resize" title="Redimensionar"></div>
+      <div class="sig-handle handle-rotate" title="Rotar" role="button" aria-label="Rotar firma">${UI.icon("rotate-cw")}</div>
+      <div class="sig-handle handle-delete" title="Eliminar" role="button" aria-label="Eliminar firma">${UI.icon("x")}</div>
+      <div class="sig-handle handle-duplicate" title="Duplicar" role="button" aria-label="Duplicar firma">${UI.icon("copy")}</div>
+      <div class="sig-handle handle-resize" title="Redimensionar" role="button" aria-label="Redimensionar firma">${UI.icon("move-diagonal-2")}</div>
     `;
     wrapEl.appendChild(el);
     applyItemStyle(wrapEl, el, item);
@@ -423,7 +423,9 @@ const PlacementManager = (() => {
 
   // Click fuera de una firma para deseleccionar
   document.addEventListener("click", (e) => {
-    if (!e.target.closest(".placed-sig")) deselectAll();
+    // Los clics en hojas y en la barra del visor no deseleccionan: así la
+    // firma recién insertada conserva sus controles visibles.
+    if (!e.target.closest(".placed-sig, .bottom-sheet, .viewer-dock")) deselectAll();
   });
 
   return {

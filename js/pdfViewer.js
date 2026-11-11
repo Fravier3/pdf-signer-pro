@@ -2,7 +2,8 @@
  * pdfViewer.js — Renderiza el PDF con PDF.js, con soporte de:
  *  - scroll vertical entre páginas
  *  - indicador de página actual
- *  - pinch-to-zoom, doble toque para zoom, arrastre (pan)
+ *  - pinch-to-zoom, doble toque, Ctrl+rueda y botones de zoom
+ *  - arrastre (pan) libre en cualquier dirección, también con el ratón
  *  - lazy rendering para documentos grandes
  */
 const PdfViewer = (() => {
@@ -11,7 +12,9 @@ const PdfViewer = (() => {
   let baseScale = 1;
   let minScale = 0.5;
   let maxScale = 4;
-  let container, pagesWrap;
+  let container, pagesWrap, sizer;
+  let listenersBound = false;
+  let onZoomChange = null;
   let pageWrappers = []; // { pageNum, wrapEl, canvas, rendered, rendering }
   let currentFile = null;
   let currentFileName = "";
@@ -48,10 +51,15 @@ const PdfViewer = (() => {
 
     container = document.getElementById("pdf-scroll");
     pagesWrap = document.getElementById("pdf-pages");
+    sizer = document.getElementById("pdf-sizer");
     pagesWrap.innerHTML = "";
     pagesWrap.style.transform = "";
     pageWrappers = [];
     scale = 1;
+    container.scrollTop = 0;
+    container.scrollLeft = 0;
+    layoutZoom();
+    notifyZoom();
 
     updatePageIndicator(1, pdfDoc.numPages);
 
@@ -70,8 +78,14 @@ const PdfViewer = (() => {
     }
 
     setupLazyRendering();
-    setupScrollPageIndicator();
-    setupGestures();
+    // Los listeners del contenedor se registran una sola vez (antes se
+    // acumulaban con cada documento abierto).
+    if (!listenersBound) {
+      listenersBound = true;
+      setupScrollPageIndicator();
+      setupGestures();
+      setupZoomLayout();
+    }
 
     // Render primeras páginas inmediatamente
     await renderPage(1);
@@ -89,7 +103,7 @@ const PdfViewer = (() => {
     canvas.width = viewport.width;
     canvas.height = viewport.height;
     entry.wrapEl.style.width = viewport.width + "px";
-    entry.wrapEl.style.maxWidth = "94vw";
+    entry.wrapEl.style.maxWidth = "94%";
     // aspect-ratio (en vez de una altura fija en px) es lo que evita que
     // la página se vea "estirada" cuando max-width la encoge en pantallas
     // angostas: el alto ahora escala siempre en proporción al ancho real.
@@ -125,13 +139,14 @@ const PdfViewer = (() => {
       if (ticking) return;
       ticking = true;
       requestAnimationFrame(() => {
+        ticking = false;
+        if (!pdfDoc) return;
         const mid = container.scrollTop + container.clientHeight / 2;
         let current = 1;
         for (const p of pageWrappers) {
-          if (p.wrapEl.offsetTop <= mid) current = p.pageNum;
+          if (p.wrapEl.offsetTop * scale <= mid) current = p.pageNum;
         }
         updatePageIndicator(current, pdfDoc.numPages);
-        ticking = false;
       });
     });
   }
@@ -146,6 +161,107 @@ const PdfViewer = (() => {
     container.addEventListener("touchstart", onTouchStart, { passive: false });
     container.addEventListener("touchmove", onTouchMove, { passive: false });
     container.addEventListener("touchend", onTouchEnd, { passive: false });
+    // Escritorio: Ctrl/⌘ + rueda (o pellizco en trackpad) amplía hacia el cursor
+    container.addEventListener(
+      "wheel",
+      (e) => {
+        if (!e.ctrlKey && !e.metaKey) return;
+        e.preventDefault();
+        setScale(scale * Math.exp(-e.deltaY * 0.0025), e.clientX, e.clientY);
+      },
+      { passive: false }
+    );
+    setupMousePan();
+  }
+
+  // Arrastrar con el ratón para mover el documento en cualquier dirección
+  function setupMousePan() {
+    container.addEventListener("mousedown", (e) => {
+      if (e.button !== 0 || e.target.closest(".placed-sig")) return;
+      // Clic sobre la barra de scroll: no es un arrastre del documento.
+      const r = container.getBoundingClientRect();
+      if (e.clientX > r.left + container.clientWidth || e.clientY > r.top + container.clientHeight) return;
+      panState = { x: e.clientX, y: e.clientY, left: container.scrollLeft, top: container.scrollTop };
+      container.classList.add("panning");
+    });
+    window.addEventListener("mousemove", (e) => {
+      if (!panState) return;
+      container.scrollLeft = panState.left - (e.clientX - panState.x);
+      container.scrollTop = panState.top - (e.clientY - panState.y);
+    });
+    window.addEventListener("mouseup", () => {
+      if (!panState) return;
+      panState = null;
+      container.classList.remove("panning");
+    });
+  }
+
+  // ---------------- ZOOM: maquetación ----------------
+  function centerOffset(cw) {
+    // Con zoom < 100 % el documento se centra; con zoom mayor arranca en 0
+    // para que el scroll alcance también el borde izquierdo.
+    return Math.max(0, (cw - cw * scale) / 2);
+  }
+
+  /**
+   * .pdf-pages se escala con transform (no ocupa más espacio en el layout),
+   * así que .pdf-sizer reserva el área real escalada: de ese modo el
+   * documento ampliado se puede recorrer entero en ambas direcciones.
+   */
+  function layoutZoom() {
+    if (!container || !pagesWrap || !sizer) return;
+    const cw = container.clientWidth;
+    if (!cw) return;
+    pagesWrap.style.width = cw + "px";
+    sizer.style.width = Math.max(cw, cw * scale) + "px";
+    sizer.style.height = pagesWrap.offsetHeight * scale + "px";
+    pagesWrap.style.transform = `translate(${centerOffset(cw)}px, 0) scale(${scale})`;
+  }
+
+  function setupZoomLayout() {
+    if (!("ResizeObserver" in window)) {
+      window.addEventListener("resize", layoutZoom);
+      return;
+    }
+    const ro = new ResizeObserver(() => layoutZoom());
+    ro.observe(container);
+    ro.observe(pagesWrap);
+  }
+
+  /**
+   * Cambia el zoom manteniendo fijo el punto del documento que está bajo
+   * (clientX, clientY); por defecto, el centro del visor.
+   */
+  function setScale(next, clientX, clientY) {
+    if (!container || !pdfDoc) return;
+    const rect = container.getBoundingClientRect();
+    const fx = (clientX == null ? rect.left + container.clientWidth / 2 : clientX) - rect.left;
+    const fy = (clientY == null ? rect.top + container.clientHeight / 2 : clientY) - rect.top;
+    const cw = container.clientWidth;
+    const docX = (container.scrollLeft + fx - centerOffset(cw)) / scale;
+    const docY = (container.scrollTop + fy) / scale;
+    scale = clamp(next, minScale, maxScale);
+    layoutZoom();
+    container.scrollLeft = docX * scale + centerOffset(cw) - fx;
+    container.scrollTop = docY * scale - fy;
+    notifyZoom();
+  }
+
+  function notifyZoom() {
+    if (onZoomChange) onZoomChange(scale);
+  }
+
+  function zoomIn() {
+    setScale(scale * 1.25);
+  }
+  function zoomOut() {
+    setScale(scale / 1.25);
+  }
+  function resetZoom() {
+    setScale(1);
+  }
+  function setOnZoomChange(fn) {
+    onZoomChange = fn;
   }
 
   function dist(t1, t2) {
@@ -162,7 +278,7 @@ const PdfViewer = (() => {
         // doble toque -> alterna zoom
         e.preventDefault();
         const target = scale > 1.4 ? 1 : 2.2;
-        animateScaleTo(target);
+        setScale(target, e.touches[0].clientX, e.touches[0].clientY);
       }
       lastTapTime = now;
     }
@@ -173,8 +289,11 @@ const PdfViewer = (() => {
       e.preventDefault();
       const d = dist(e.touches[0], e.touches[1]);
       const factor = d / (pinchStartDist || d);
-      scale = clamp(pinchStartScale * factor, minScale, maxScale);
-      applyScale();
+      setScale(
+        pinchStartScale * factor,
+        (e.touches[0].clientX + e.touches[1].clientX) / 2,
+        (e.touches[0].clientY + e.touches[1].clientY) / 2
+      );
     }
   }
 
@@ -184,17 +303,6 @@ const PdfViewer = (() => {
 
   function clamp(v, min, max) {
     return Math.max(min, Math.min(max, v));
-  }
-
-  function applyScale() {
-    pagesWrap.style.transform = `scale(${scale})`;
-  }
-
-  function animateScaleTo(target) {
-    scale = clamp(target, minScale, maxScale);
-    pagesWrap.style.transition = "transform .25s ease";
-    applyScale();
-    setTimeout(() => (pagesWrap.style.transition = ""), 260);
   }
 
   function getPdfDoc() {
@@ -224,6 +332,8 @@ const PdfViewer = (() => {
     pageWrappers = [];
     if (pagesWrap) pagesWrap.innerHTML = "";
     scale = 1;
+    layoutZoom();
+    notifyZoom();
   }
 
   return {
@@ -234,5 +344,10 @@ const PdfViewer = (() => {
     getFileName,
     getOriginalBytes,
     reset,
+    zoomIn,
+    zoomOut,
+    resetZoom,
+    setOnZoomChange,
+    hasDocument: () => !!pdfDoc,
   };
 })();
