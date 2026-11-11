@@ -98,22 +98,45 @@
     return input;
   })();
 
-  document.getElementById("btn-open-pdf").addEventListener("click", () => fileInputPdf.click());
+  let pdfInputAction = "open";
+  let pdfInputBusy = false;
+  function pickPdf(action) {
+    if (pdfInputBusy) return;
+    pdfInputAction = action;
+    fileInputPdf.click();
+  }
+
+  document.getElementById("btn-open-pdf").addEventListener("click", () => pickPdf("open"));
+  document.getElementById("action-append-pdf").addEventListener("click", () => {
+    BottomSheet.close();
+    pickPdf("append");
+  });
   fileInputPdf.addEventListener("change", async () => {
     const file = fileInputPdf.files[0];
     fileInputPdf.value = "";
-    if (!file) return;
+    if (!file || pdfInputBusy) return;
     if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
       Toast.show("Selecciona un archivo PDF válido");
       return;
     }
-    PlacementManager.reset();
+    const appending = pdfInputAction === "append";
+    pdfInputBusy = true;
+    if (appending) Loader.show("Añadiendo PDF…");
     try {
-      await PdfViewer.openFile(file);
-      showScreen("viewer");
+      if (appending) {
+        const added = await PdfViewer.appendFile(file);
+        if (added) Toast.show(added === 1 ? "Se añadió 1 página al final" : `Se añadieron ${added} páginas al final`);
+      } else {
+        await PdfViewer.openFile(file);
+        PlacementManager.reset();
+        showScreen("viewer");
+      }
     } catch (err) {
       console.error(err);
-      Toast.show("No se pudo abrir el PDF");
+      Toast.show(appending ? "No se pudo añadir el PDF. Verifica que el archivo se pueda abrir y no esté protegido." : "No se pudo abrir el PDF");
+    } finally {
+      if (appending) Loader.hide();
+      pdfInputBusy = false;
     }
   });
 
@@ -328,6 +351,7 @@
     hideSplash();
     ThemeManager.init();
     BottomSheet.init();
+    PdfExporter.init();
     SignaturePickerSheet.init();
     DrawSignature.init();
     await SignaturesUI.refresh();

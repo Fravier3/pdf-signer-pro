@@ -11,7 +11,10 @@ const PdfExporter = (() => {
     const originalBytes = PdfViewer.getOriginalBytes();
     if (!originalBytes) throw new Error("No hay documento abierto.");
 
-    const pdfDoc = await PDFDocument.load(originalBytes.slice(0));
+    if (!PlacementManager.hasAnyPlacement()) {
+      return new Blob([originalBytes], { type: "application/pdf" });
+    }
+    const pdfDoc = await PDFDocument.load(originalBytes);
     const placements = PlacementManager.getPlacements();
     const pngCache = new Map();
 
@@ -82,56 +85,135 @@ const PdfExporter = (() => {
     return `${base}-firmado.pdf`;
   }
 
-  async function saveToDevice() {
-    Loader.show("Generando PDF firmado…");
-    try {
-      const blob = await buildSignedPdf();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = suggestedFileName();
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 4000);
-      Toast.show("PDF guardado correctamente");
-    } finally {
-      Loader.hide();
-    }
+  const sheet = () => document.getElementById("pdf-export-sheet");
+  const overlay = () => document.getElementById("pdf-export-overlay");
+  let pendingExport = null;
+  let returnFocus = null;
+  let exporting = false;
+
+  function download(file) {
+    const url = URL.createObjectURL(file);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = file.name;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    Toast.show("Descarga iniciada");
   }
 
-  async function shareFile() {
-    Loader.show("Preparando para compartir…");
-    try {
-      const blob = await buildSignedPdf();
-      const file = new File([blob], suggestedFileName(), { type: "application/pdf" });
+  function openExportSheet(file, saving) {
+    pendingExport = { file, saving };
+    returnFocus = document.activeElement;
+    document.getElementById("pdf-export-title").textContent = saving ? "Guardar PDF" : "Compartir PDF";
+    document.getElementById("pdf-export-native-label").textContent = saving ? "Elegir ubicación…" : "Abrir menú de compartir…";
+    UI.showOverlay(overlay());
+    UI.openSheet(sheet());
+    document.getElementById("pdf-export-native").focus({ preventScroll: true });
+  }
 
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({
-          files: [file],
-          title: "PDF firmado",
-          text: "Documento firmado con PDF Signer Pro",
-        });
-      } else {
-        // Fallback: descarga directa si Web Share API no está disponible
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = suggestedFileName();
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        setTimeout(() => URL.revokeObjectURL(url), 4000);
-        Toast.show("Tu navegador no soporta compartir directamente: PDF descargado");
+  function closeExportSheet() {
+    pendingExport = null;
+    UI.closeSheet(sheet());
+    UI.hideOverlay(overlay());
+    returnFocus?.focus({ preventScroll: true });
+    returnFocus = null;
+  }
+
+  async function shareNative(file) {
+    await navigator.share({ files: [file] });
+  }
+
+  async function prepareExport(saving) {
+    if (exporting || pendingExport) return;
+    exporting = true;
+    const filename = suggestedFileName();
+    let handle;
+    try {
+      if (saving && typeof window.showSaveFilePicker === "function") {
+        try {
+          handle = await window.showSaveFilePicker({
+            suggestedName: filename,
+            types: [{ description: "PDF", accept: { "application/pdf": [".pdf"] } }],
+          });
+        } catch (err) {
+          if (err.name === "AbortError") return;
+          if (err.name !== "SecurityError" && err.name !== "NotAllowedError") throw err;
+        }
+      }
+
+      Loader.show("Preparando PDF…");
+      let file;
+      try {
+        const blob = await buildSignedPdf();
+        file = new File([blob], filename, { type: blob.type });
+        if (handle) {
+          const stream = await handle.createWritable();
+          try {
+            await stream.write(file);
+            await stream.close();
+          } catch (err) {
+            await stream.abort().catch(() => {});
+            throw err;
+          }
+          Toast.show("PDF guardado correctamente");
+          return;
+        }
+      } finally {
+        Loader.hide();
+      }
+
+      if (!navigator.canShare?.({ files: [file] })) {
+        download(file);
+        return;
+      }
+      try {
+        await shareNative(file);
+      } catch (err) {
+        if (err.name === "AbortError") return;
+        // Un PDF grande puede agotar el tiempo de activación del primer toque.
+        // Conservamos el archivo ya generado para abrir el menú desde un toque nuevo.
+        openExportSheet(file, saving);
       }
     } catch (err) {
-      if (err && err.name !== "AbortError") {
-        Toast.show("No se pudo compartir el documento");
-      }
+      console.error(err);
+      Toast.show(saving ? "No se pudo guardar el PDF" : "No se pudo compartir el PDF");
     } finally {
-      Loader.hide();
+      exporting = false;
     }
   }
 
-  return { buildSignedPdf, saveToDevice, shareFile, suggestedFileName };
+  function init() {
+    document.getElementById("pdf-export-native").addEventListener("click", async () => {
+      if (!pendingExport) return;
+      const { file, saving } = pendingExport;
+      closeExportSheet();
+      try {
+        await shareNative(file);
+      } catch (err) {
+        if (err.name === "AbortError") return;
+        openExportSheet(file, saving);
+        Toast.show("El menú del sistema no está disponible. Puedes descargar el PDF.");
+      }
+    });
+    document.getElementById("pdf-export-download").addEventListener("click", () => {
+      if (!pendingExport) return;
+      const { file } = pendingExport;
+      closeExportSheet();
+      download(file);
+    });
+    document.getElementById("pdf-export-close").addEventListener("click", closeExportSheet);
+    overlay().addEventListener("click", closeExportSheet);
+    sheet().addEventListener("keydown", (event) => {
+      if (event.key === "Escape") closeExportSheet();
+      else UI.trapFocus(sheet(), event);
+    });
+  }
+
+  return {
+    init,
+    saveToDevice: () => prepareExport(true),
+    shareFile: () => prepareExport(false),
+  };
 })();

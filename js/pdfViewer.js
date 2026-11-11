@@ -16,7 +16,8 @@ const PdfViewer = (() => {
   let listenersBound = false;
   let onZoomChange = null;
   let pageWrappers = []; // { pageNum, wrapEl, canvas, rendered, rendering }
-  let currentFile = null;
+  let currentBytes = null;
+  let lazyObserver = null;
   let currentFileName = "";
   let onPageChange = null;
 
@@ -34,17 +35,14 @@ const PdfViewer = (() => {
 
   async function openFile(file) {
     setWorker();
-    currentFile = file;
-    currentFileName = file.name || "Documento.pdf";
-    document.getElementById("viewer-filename").textContent = currentFileName;
-
-    const arrayBuffer = await file.arrayBuffer();
-    // Guardamos una copia intacta para exportación (nunca se modifica el original)
-    currentFile._bytes = arrayBuffer.slice(0);
-
     Loader.show("Abriendo documento…");
     try {
-      pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer.slice(0) }).promise;
+      const bytes = await file.arrayBuffer();
+      const nextDoc = await loadDocument(bytes);
+      replaceDocument(nextDoc);
+      currentBytes = bytes;
+      currentFileName = file.name || "Documento.pdf";
+      document.getElementById("viewer-filename").textContent = currentFileName;
     } finally {
       Loader.hide();
     }
@@ -63,21 +61,8 @@ const PdfViewer = (() => {
 
     updatePageIndicator(1, pdfDoc.numPages);
 
-    for (let i = 1; i <= pdfDoc.numPages; i++) {
-      const wrap = document.createElement("div");
-      wrap.className = "pdf-page-wrap";
-      wrap.dataset.pageNum = i;
-      const canvas = document.createElement("canvas");
-      wrap.appendChild(canvas);
-      const badge = document.createElement("div");
-      badge.className = "pdf-page-number-badge";
-      badge.textContent = `${i} / ${pdfDoc.numPages}`;
-      wrap.appendChild(badge);
-      pagesWrap.appendChild(wrap);
-      pageWrappers.push({ pageNum: i, wrapEl: wrap, canvas, rendered: false, rendering: false });
-    }
-
     setupLazyRendering();
+    addPageWrappers(1);
     // Los listeners del contenedor se registran una sola vez (antes se
     // acumulaban con cada documento abierto).
     if (!listenersBound) {
@@ -92,11 +77,82 @@ const PdfViewer = (() => {
     if (pdfDoc.numPages > 1) renderPage(2);
   }
 
-  async function renderPage(pageNum) {
+  async function loadDocument(bytes) {
+    const task = pdfjsLib.getDocument({ data: bytes.slice(0) });
+    try {
+      return await task.promise;
+    } catch (err) {
+      await task.destroy().catch(console.warn);
+      throw err;
+    }
+  }
+
+  function replaceDocument(nextDoc) {
+    const previousDoc = pdfDoc;
+    pdfDoc = nextDoc;
+    if (previousDoc) {
+      Promise.allSettled(pageWrappers.map(({ rendering }) => rendering))
+        .then(() => previousDoc.destroy()).catch(console.warn);
+    }
+  }
+
+  async function appendFile(file) {
+    const originalDoc = pdfDoc;
+    if (!originalDoc) return 0;
+    const { PDFDocument } = PDFLib;
+    const merged = await PDFDocument.load(currentBytes);
+    const additional = await PDFDocument.load(await file.arrayBuffer());
+    const pages = await merged.copyPages(additional, additional.getPageIndices());
+    if (!pages.length) throw new Error("El PDF no contiene páginas.");
+    pages.forEach((page) => merged.addPage(page));
+    const bytes = (await merged.save()).buffer;
+    const nextDoc = await loadDocument(bytes);
+    if (pdfDoc !== originalDoc) {
+      await nextDoc.destroy();
+      return 0;
+    }
+
+    replaceDocument(nextDoc);
+    currentBytes = bytes;
+    for (const { pageNum, wrapEl } of pageWrappers) {
+      wrapEl.querySelector(".pdf-page-number-badge").textContent = `${pageNum} / ${pdfDoc.numPages}`;
+    }
+    addPageWrappers(originalDoc.numPages + 1);
+    layoutZoom();
+    updateVisiblePage();
+    return pages.length;
+  }
+
+  function addPageWrappers(firstPage) {
+    for (let pageNum = firstPage; pageNum <= pdfDoc.numPages; pageNum++) {
+      const wrapEl = document.createElement("div");
+      wrapEl.className = "pdf-page-wrap";
+      wrapEl.dataset.pageNum = pageNum;
+      const canvas = document.createElement("canvas");
+      const badge = document.createElement("div");
+      badge.className = "pdf-page-number-badge";
+      badge.textContent = `${pageNum} / ${pdfDoc.numPages}`;
+      wrapEl.append(canvas, badge);
+      pagesWrap.appendChild(wrapEl);
+      pageWrappers.push({ pageNum, wrapEl, canvas, rendered: false, rendering: null });
+      lazyObserver.observe(wrapEl);
+    }
+  }
+
+  function renderPage(pageNum) {
     const entry = pageWrappers[pageNum - 1];
-    if (!entry || entry.rendered || entry.rendering) return;
-    entry.rendering = true;
-    const page = await pdfDoc.getPage(pageNum);
+    if (!entry || entry.rendered) return;
+    if (!entry.rendering) {
+      entry.rendering = paintPage(pdfDoc, entry)
+        .catch((err) => console.warn("No se pudo mostrar la página", pageNum, err))
+        .finally(() => { entry.rendering = null; });
+    }
+    return entry.rendering;
+  }
+
+  async function paintPage(doc, entry) {
+    const { pageNum } = entry;
+    const page = await doc.getPage(pageNum);
     const viewport = page.getViewport({ scale: 1.6 });
     const canvas = entry.canvas;
     const ctx = canvas.getContext("2d");
@@ -112,12 +168,12 @@ const PdfViewer = (() => {
 
     await page.render({ canvasContext: ctx, viewport }).promise;
     entry.rendered = true;
-    entry.rendering = false;
     entry.wrapEl.dispatchEvent(new CustomEvent("page-rendered", { detail: { pageNum } }));
   }
 
   function setupLazyRendering() {
-    const io = new IntersectionObserver(
+    lazyObserver?.disconnect();
+    lazyObserver = new IntersectionObserver(
       (entries) => {
         entries.forEach((e) => {
           if (e.isIntersecting) {
@@ -130,7 +186,6 @@ const PdfViewer = (() => {
       },
       { root: container, rootMargin: "600px 0px", threshold: 0.01 }
     );
-    pageWrappers.forEach((p) => io.observe(p.wrapEl));
   }
 
   function setupScrollPageIndicator() {
@@ -140,15 +195,19 @@ const PdfViewer = (() => {
       ticking = true;
       requestAnimationFrame(() => {
         ticking = false;
-        if (!pdfDoc) return;
-        const mid = container.scrollTop + container.clientHeight / 2;
-        let current = 1;
-        for (const p of pageWrappers) {
-          if (p.wrapEl.offsetTop * scale <= mid) current = p.pageNum;
-        }
-        updatePageIndicator(current, pdfDoc.numPages);
+        updateVisiblePage();
       });
     });
+  }
+
+  function updateVisiblePage() {
+    if (!pdfDoc) return;
+    const mid = container.scrollTop + container.clientHeight / 2;
+    let current = 1;
+    for (const p of pageWrappers) {
+      if (p.wrapEl.offsetTop * scale <= mid) current = p.pageNum;
+    }
+    updatePageIndicator(current, pdfDoc.numPages);
   }
 
   function updatePageIndicator(current, total) {
@@ -323,12 +382,13 @@ const PdfViewer = (() => {
   }
 
   function getOriginalBytes() {
-    return currentFile ? currentFile._bytes : null;
+    return currentBytes;
   }
 
   function reset() {
-    pdfDoc = null;
-    currentFile = null;
+    replaceDocument(null);
+    currentBytes = null;
+    lazyObserver?.disconnect();
     pageWrappers = [];
     if (pagesWrap) pagesWrap.innerHTML = "";
     scale = 1;
@@ -338,6 +398,7 @@ const PdfViewer = (() => {
 
   return {
     openFile,
+    appendFile,
     getPdfDoc,
     getPageWrapEl,
     getAllPageWraps,

@@ -3,7 +3,7 @@
  * una vez instalada. Estrategia: "cache first, network fallback" para
  * el shell de la app, y "network first" para navegación de documento.
  */
-const CACHE_NAME = "pdf-signer-pro-v4";
+const CACHE_NAME = "pdf-signer-pro-v5";
 
 const APP_SHELL = [
   "./",
@@ -60,7 +60,7 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
+      Promise.all(keys.filter((k) => k.startsWith("pdf-signer-pro-") && k !== CACHE_NAME).map((k) => caches.delete(k)))
     )
   );
   self.clients.claim();

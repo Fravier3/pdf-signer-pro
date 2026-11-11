@@ -174,7 +174,7 @@
         <i data-icon="save"></i>
       </button>
       <button class="icon-btn" id="dock-share-pdf" aria-label="Compartir PDF" title="Compartir PDF">
-        <i data-icon="share-2"></i>
+        <i data-icon="share"></i>
       </button>
       <button class="icon-btn" id="fab-main" aria-label="Más acciones" aria-haspopup="dialog" title="Más acciones">
         <i data-icon="ellipsis"></i>
@@ -389,11 +389,14 @@
   <button class="sheet-action" id="action-new-signature">
     <span class="sheet-action-icon"><i data-icon="plus"></i></span> Nueva firma
   </button>
+  <button class="sheet-action" id="action-append-pdf">
+    <span class="sheet-action-icon"><i data-icon="plus"></i></span> Añadir otro PDF
+  </button>
   <button class="sheet-action" id="action-save-pdf">
     <span class="sheet-action-icon"><i data-icon="save"></i></span> Guardar PDF
   </button>
   <button class="sheet-action" id="action-share-pdf">
-    <span class="sheet-action-icon"><i data-icon="share-2"></i></span> Compartir PDF
+    <span class="sheet-action-icon"><i data-icon="share"></i></span> Compartir PDF
   </button>
   <button class="sheet-action destructive" id="action-close-doc">
     <span class="sheet-action-icon"><i data-icon="x"></i></span> Cerrar documento
@@ -410,6 +413,22 @@
     <button class="icon-btn sheet-close" id="btn-close-picker" aria-label="Cerrar selector"><i data-icon="x"></i></button>
   </div>
   <div id="signature-picker-list" class="signature-picker-list"></div>
+</div>
+
+<div id="pdf-export-overlay" class="sheet-overlay"></div>
+<div id="pdf-export-sheet" class="bottom-sheet glass" role="dialog" aria-modal="true" aria-labelledby="pdf-export-title">
+  <div class="sheet-handle" aria-hidden="true"></div>
+  <div class="sheet-head">
+    <span class="panel-icon"><i data-icon="file-text"></i></span>
+    <h2 class="sheet-title" id="pdf-export-title">PDF listo</h2>
+    <button class="icon-btn sheet-close" id="pdf-export-close" aria-label="Cerrar opciones"><i data-icon="x"></i></button>
+  </div>
+  <button class="sheet-action" id="pdf-export-native">
+    <span class="sheet-action-icon"><i data-icon="share"></i></span><span id="pdf-export-native-label">Guardar PDF</span>
+  </button>
+  <button class="sheet-action" id="pdf-export-download">
+    <span class="sheet-action-icon"><i data-icon="save"></i></span> Descargar PDF
+  </button>
 </div>
 
 <!-- ======================= TOAST ======================= -->
