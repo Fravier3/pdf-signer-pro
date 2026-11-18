@@ -16,18 +16,18 @@ const ScanImage = (() => {
     return element;
   }
 
-  function imageSize(width, height, limit = 4096) {
-    const scale = Math.min(1, limit / Math.max(width, height), Math.sqrt(9_000_000 / (width * height)));
+  function imageSize(width, height, limit = 4096, maxPixels = 9_000_000) {
+    const scale = Math.min(1, limit / Math.max(width, height), Math.sqrt(maxPixels / (width * height)));
     return [Math.max(2, Math.round(width * scale)), Math.max(2, Math.round(height * scale))];
   }
 
-  async function read(file, limit) {
+  async function read(file, limit, maxPixels) {
     const url = URL.createObjectURL(file);
     try {
       const image = new Image();
       image.src = url;
       await image.decode();
-      const result = canvas(...imageSize(image.naturalWidth, image.naturalHeight, limit));
+      const result = canvas(...imageSize(image.naturalWidth, image.naturalHeight, limit, maxPixels));
       const context = result.getContext("2d", { alpha: false, willReadFrequently: true });
       context.imageSmoothingQuality = "high";
       context.fillStyle = "#fff";
@@ -311,7 +311,7 @@ const ScanImage = (() => {
     // Proyección inversa del rectángulo al cuadrilátero de la foto.
     const width = (distance(a, b) + distance(d, c)) / 2 + 1;
     const height = (distance(a, d) + distance(b, c)) / 2 + 1;
-    const target = canvas(...imageSize(width, height, limit));
+    const target = canvas(...imageSize(width, height, limit, Math.max(9_000_000, source.width * source.height)));
     const context = target.getContext("2d", { willReadFrequently: true });
     const pixels = source.getContext("2d").getImageData(0, 0, source.width, source.height).data;
     const rectified = context.createImageData(target.width, target.height);

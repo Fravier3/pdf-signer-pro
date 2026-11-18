@@ -3,7 +3,10 @@
  * una vez instalada. Estrategia: "cache first, network fallback" para
  * el shell de la app, y "network first" para navegación de documento.
  */
-const CACHE_NAME = "pdf-signer-pro-v9";
+const CACHE_NAME = "pdf-signer-pro-v10";
+
+const ENGINE_CACHE = "pdf-pro-opencv-4.10.0-release.1";
+const ENGINE_URL = "https://cdn.jsdelivr.net/npm/@techstark/opencv-js@4.10.0-release.1/dist/opencv.js";
 
 const APP_SHELL = [
   "./",
@@ -23,6 +26,8 @@ const APP_SHELL = [
   "./js/exportPdf.js",
   "./js/app.js",
   "./js/scan.js",
+  "./js/scanEngines.js",
+  "./vendor/nitidoc/engine.js",
   "./js/scanCamera.js",
   "./js/scanImage.js",
   "./js/lib/pdf.min.js",
@@ -72,6 +77,20 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
+  if (event.request.url === ENGINE_URL) {
+    event.respondWith((async () => {
+      const cache = await caches.open(ENGINE_CACHE);
+      const cached = await cache.match(event.request);
+      if (cached) return cached;
+      const response = await fetch(event.request);
+      if (response.ok && response.type === "cors") {
+        try { await cache.put(event.request, response.clone()); } catch { /* storage unavailable */ }
+      }
+      return response;
+    })());
+    return;
+  }
+  if (new URL(event.request.url).origin !== self.location.origin) return;
 
   event.respondWith(
     caches.match(event.request).then((cached) => {

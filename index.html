@@ -151,9 +151,25 @@
   </header>
   <div class="screen-body" data-scroll>
     <div class="container container-narrow">
+      <section class="panel scan-pane scan-engines" aria-labelledby="scan-engine-title">
+        <h2 id="scan-engine-title">Motor de escaneo</h2>
+        <div class="scan-engine-grid" id="scan-engine-grid">
+          <button type="button" data-engine="scanlio" aria-disabled="true"><i data-icon="scan-line"></i><strong>Scanlio</strong><small>Permiso pendiente</small></button>
+          <button type="button" data-engine="nitidoc" aria-pressed="false"><i data-icon="scan-line"></i><strong>Nitidoc</strong><small>OpenCV · procesamiento local</small></button>
+          <button type="button" data-engine="scanner" aria-disabled="true"><i data-icon="scan-line"></i><strong>Scanner</strong><small>Permiso pendiente</small></button>
+          <button type="button" data-engine="compare" aria-pressed="false"><i data-icon="file-text"></i><strong>Comparar los 3</strong><small>2 motores disponibles</small></button>
+        </div>
+        <div class="scan-engine-footer">
+          <button id="scan-classic" type="button" class="btn secondary" aria-pressed="true">PDF Pro</button>
+          <button id="scan-favorite" type="button" class="btn secondary" aria-pressed="false">Marcar favorito</button>
+          <a href="vendor/nitidoc/SOURCE.md">Código fuente de Nitidoc</a>
+        </div>
+      </section>
       <section class="panel scan-pane">
         <div class="scan-actions">
+          <span id="scan-active-engine" class="count-badge">PDF Pro</span>
           <button id="scan-camera" class="btn primary" type="button"><i data-icon="scan-line"></i><span id="scan-camera-label">Escanear página</span></button>
+          <button id="scan-retake" class="btn secondary" type="button" hidden>Repetir foto</button>
           <button id="scan-import" class="btn secondary" type="button"><i data-icon="file-up"></i>Elegir fotos</button>
         </div>
         <input id="scan-import-input" type="file" accept="image/*" multiple hidden>
@@ -182,9 +198,11 @@
         </div>
         <div id="scan-adjustments">
           <div class="scan-fields">
-            <label>Filtro<select id="scan-filter"><option value="auto">Automático</option><option value="color">Color original</option><option value="gray">Escala de grises</option><option value="bw">Documento B/N</option></select></label>
+            <label>Filtro<select id="scan-filter"><option value="auto">Automático</option><option value="color">Original</option><option value="vivid">Color mejorado</option><option value="magic">Documento mágico</option><option value="gray">Escala de grises</option><option value="bw">Documento B/N</option></select></label>
             <label>Brillo<input id="scan-brightness" type="range" min="-50" max="50" value="0"></label>
             <label>Contraste<input id="scan-contrast" type="range" min="-50" max="100" value="0"></label>
+            <label>Saturación<input id="scan-saturation" type="range" min="-100" max="100" value="0"></label>
+            <label>Nitidez<input id="scan-sharpness" type="range" min="0" max="100" value="0"></label>
           </div>
           <div class="scan-actions">
             <button id="scan-rotate" class="btn secondary" type="button">Girar 90°</button>
@@ -197,6 +215,9 @@
       <section id="scan-pages" class="panel scan-pane" aria-labelledby="scan-pages-title" hidden>
         <h2 id="scan-pages-title">Páginas</h2>
         <div id="scan-page-list" class="scan-page-list" aria-label="Orden del PDF"></div>
+        <div class="scan-fields scan-format">
+          <label>Tamaño del PDF<select id="scan-format"><option value="original">Proporciones originales</option><option value="letter">Carta</option><option value="a4">A4</option></select></label>
+        </div>
         <div class="scan-actions">
           <button id="scan-open-pdf" class="btn primary" type="button"><i data-icon="file-text"></i>Crear PDF</button>
           <button id="scan-clear" class="btn secondary" type="button">Vaciar escaneo</button>
@@ -211,6 +232,7 @@
     <header class="scan-live-header">
       <button id="scan-live-close" class="icon-btn" type="button" aria-label="Cerrar cámara"><i data-icon="chevron-left"></i></button>
       <h2 id="scan-live-title">Escanear página</h2>
+      <label class="scan-auto"><input type="checkbox" id="scan-live-auto" checked> Auto</label>
     </header>
     <div class="scan-live-view">
       <video id="scan-live-video" autoplay muted playsinline aria-hidden="true"></video>
@@ -223,6 +245,24 @@
       <input id="scan-live-file" type="file" accept="image/*" capture="environment" hidden>
     </div>
   </div>
+</dialog>
+
+<dialog id="scan-compare" class="scan-dialog" aria-labelledby="scan-compare-title">
+  <header class="scan-heading">
+    <h2 id="scan-compare-title">Comparar resultados</h2>
+    <form method="dialog"><button class="icon-btn" aria-label="Cerrar comparación"><i data-icon="x"></i></button></form>
+  </header>
+  <p id="scan-compare-status" class="scan-note" role="status"></p>
+  <div id="scan-compare-results" class="scan-results"></div>
+</dialog>
+
+<dialog id="scan-zoom" class="scan-dialog" aria-labelledby="scan-zoom-title">
+  <header class="scan-heading">
+    <h2 id="scan-zoom-title">Detalle de la imagen</h2>
+    <form method="dialog"><button class="icon-btn" aria-label="Cerrar detalle"><i data-icon="x"></i></button></form>
+  </header>
+  <label class="scan-zoom-control">Ampliación <input id="scan-zoom-level" type="range" min="1" max="6" step="0.1" value="1"></label>
+  <div id="scan-zoom-viewport" tabindex="0" aria-label="Imagen ampliable"><img id="scan-zoom-image" alt=""></div>
 </dialog>
 
 <!-- ======================= VISOR PDF ======================= -->
@@ -552,6 +592,7 @@
 <script src="js/placement.js"></script>
 <script src="js/exportPdf.js"></script>
 <script src="js/scanImage.js"></script>
+<script src="js/scanEngines.js"></script>
 <script src="js/scanCamera.js"></script>
 <script src="js/scan.js"></script>
 <script src="js/app.js"></script>

@@ -101,3 +101,13 @@ Todo el procesamiento (lectura de PDF, dibujo, almacenamiento y exportación)
 ocurre enteramente en el navegador del usuario. La aplicación no tiene
 backend, no usa bases de datos externas y no realiza ninguna petición de
 red con datos del usuario.
+
+### Motores de escaneo
+
+- **Nitidoc** emplea su worker original de detección, corrección de perspectiva y filtros, con OpenCV.js fijado a la versión 4.10.0-release.1. La primera descarga de OpenCV necesita conexión. Cuando la PWA controla la página, guarda esa dependencia para trabajar sin conexión.
+- **PDF Pro** mantiene su detector, corrección de perspectiva y filtros propios. En ambos casos el giro por orientación del texto y el armado del PDF los hace PDF Pro.
+- **Comparar** procesa la misma foto con ambos motores disponibles. Las cifras muestran dimensiones, peso del JPEG al 98 % y tiempo local de procesamiento tras iniciar cada motor. Los motores se eligen por página y la exportación admite Carta, A4 y proporciones originales.
+- **Scanlio** y **Scanner** requieren permiso de redistribución antes de incorporarlos al sitio publicado. Las tarjetas siguen pendientes.
+- Compatibilidad de captura: la cámara integrada usa la foto fija si el navegador expone `ImageCapture`. También ofrece la cámara nativa del dispositivo y el fotograma de vídeo como alternativas. El procesamiento final parte de la foto original y limita la entrada a 12.5 megapíxeles y 5760 píxeles por lado para cuidar memoria. Los originales conservan su archivo en la sesión.
+
+[Licencia y código fuente del componente Nitidoc](vendor/nitidoc/SOURCE.md)
