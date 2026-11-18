@@ -125,11 +125,10 @@ ol{ padding: 0; list-style: none; }
   box-shadow: var(--shadow-soft), inset 0 1px 0 var(--glass-hi);
 }
 
-/* Fondo ambiental: halos muy suaves de los dos acentos sobre --bg */
+/* Fondo ambiental en el borde inferior. */
 .ambient{
   position: fixed; inset: 0; z-index: 0; pointer-events: none;
   background:
-    radial-gradient(70vmax 60vmax at 8% -10%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 62%),
     radial-gradient(70vmax 60vmax at 105% 108%, color-mix(in srgb, var(--accent-2) 16%, transparent), transparent 62%);
 }
 
@@ -231,6 +230,7 @@ body[data-screen="viewer"] .app-nav{ display: none; }
 
 /* =============================== TOPBAR =============================== */
 .topbar{
+  background: var(--bg);
   display: flex; align-items: center; justify-content: space-between;
   padding: 14px 16px 10px;
   gap: 12px;
@@ -346,9 +346,6 @@ body[data-screen="viewer"] .app-nav{ display: none; }
 
 /* =============================== PDF VIEWER =============================== */
 .viewer-topbar{
-  background: var(--bg-elevated);
-  -webkit-backdrop-filter: blur(var(--blur)) saturate(160%);
-  backdrop-filter: blur(var(--blur)) saturate(160%);
   border-bottom: 1px solid var(--separator);
   position: relative; z-index: 5;
   padding-bottom: 12px;
