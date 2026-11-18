@@ -23,7 +23,41 @@ const Scan = (() => {
     get("status").textContent = message;
   }
 
+  function hideLoupe() {
+    get("loupe").hidden = true;
+  }
+
+  // Lupa: acerca la zona bajo el dedo y se pone al otro lado de la foto para que el dedo no la tape.
+  function showLoupe(index) {
+    const loupe = get("loupe");
+    const original = get("original");
+    const stage = get("crop-stage");
+    const [x, y] = crop[index];
+    const side = Math.min(original.width, original.height, Math.max(original.width, original.height) * 0.06);
+    const left = ScanImage.clamp(x * original.width - side / 2, 0, original.width - side);
+    const top = ScanImage.clamp(y * original.height - side / 2, 0, original.height - side);
+    const context = loupe.getContext("2d");
+    context.drawImage(original, left, top, side, side, 0, 0, loupe.width, loupe.height);
+    // La mira marca la esquina exacta, aunque esté pegada al borde de la foto.
+    const mx = (x * original.width - left) / side * loupe.width;
+    const my = (y * original.height - top) / side * loupe.height;
+    context.strokeStyle = "#7f77ff";
+    context.lineWidth = 2;
+    context.beginPath();
+    context.moveTo(mx, my - 14);
+    context.lineTo(mx, my + 14);
+    context.moveTo(mx - 14, my);
+    context.lineTo(mx + 14, my);
+    context.stroke();
+    const size = loupe.offsetWidth || 104;
+    const height = original.clientHeight || stage.clientHeight;
+    loupe.style.left = x > 0.5 ? "6px" : Math.max(6, original.clientWidth - size - 6) + "px";
+    loupe.style.top = ScanImage.clamp(y * height - size / 2, 6, Math.max(6, height - size - 6)) + "px";
+    loupe.hidden = false;
+  }
+
   function setCrop(points) {
+    hideLoupe();
     crop = points;
     get("crop-stage").hidden = !crop;
     get("crop-actions").hidden = !crop;
@@ -118,6 +152,21 @@ const Scan = (() => {
     }
   }
 
+  // Mira el texto de la página ya enderezada para girarla y nivelarla sola. Si falla o no está seguro, no cambia nada.
+  async function readText(file, corners) {
+    try {
+      // El texto fino (los trazos que suben y bajan) solo se distingue con buena resolución.
+      const large = await ScanImage.read(file, 2400);
+      try {
+        return ScanImage.orientation(ScanImage.rectify(large, corners, 2400));
+      } finally {
+        large.width = large.height = 1;
+      }
+    } catch {
+      return { rotation: 0, skew: 0, confident: false };
+    }
+  }
+
   async function addFiles(files, capturedCorners) {
     const first = pages.length;
     let skipped = 0;
@@ -127,12 +176,17 @@ const Scan = (() => {
         const image = await ScanImage.read(file, 900);
         const detected = capturedCorners || ScanImage.detect(image);
         const corners = detected || ScanImage.fullFrame();
+        const turn = await readText(file, corners);
         const thumb = ScanImage.canvas(1, 1);
         ScanImage.enhance(ScanImage.rectify(image, corners, 96), thumb, {
-          mode: "auto", brightness: 0, contrast: 0, rotation: 0,
+          mode: "auto", brightness: 0, contrast: 0, rotation: turn.rotation, skew: turn.skew,
         });
-        pages.push({ file, corners, detected: !!detected, thumbnail: thumb.toDataURL(),
-          mode: "auto", brightness: 0, contrast: 0, rotation: 0 });
+        const notes = [];
+        if (detected?.folded) notes.push("esquina doblada ajustada");
+        if (turn.rotation) notes.push("página girada");
+        if (Math.abs(turn.skew) > 0.0087) notes.push("texto nivelado");
+        pages.push({ file, corners, detected: !!detected, thumbnail: thumb.toDataURL(), notes,
+          mode: "auto", brightness: 0, contrast: 0, rotation: turn.rotation, skew: turn.skew });
       } catch {
         skipped++;
       }
@@ -140,7 +194,9 @@ const Scan = (() => {
     if (pages.length > first) {
       await select(pages.length - 1);
       get("page-list").lastElementChild?.scrollIntoView({ block: "nearest", inline: "nearest" });
-      if (pages[selected].detected) status("Página enderezada. Puedes escanear otra o crear el PDF.");
+      const { detected, notes } = pages[selected];
+      if (detected) status("Página enderezada" + (notes.length ? " (" + notes.join(", ") + ")" : "") +
+        ". Puedes escanear otra o crear el PDF.");
     }
     if (skipped) {
       const message = "Algunas fotos no se pudieron abrir. Prueba con una foto JPG o PNG.";
@@ -225,22 +281,30 @@ const Scan = (() => {
     });
     get("crop").addEventListener("click", editCrop);
     get("reset-crop").addEventListener("click", () => setCrop(ScanImage.detect(source) || ScanImage.fullFrame()));
-    get("apply-crop").addEventListener("click", () => {
+    get("apply-crop").addEventListener("click", () => run(async () => {
       const page = pages[selected];
       flat = ScanImage.rectify(source, crop, PREVIEW_EDGE);
       page.corners = crop;
       page.detected = true;
+      // Con otras esquinas cambia la inclinación del texto: se vuelve a medir (el giro de 90° lo decide la persona).
+      const turn = await readText(page.file, crop);
+      page.skew = turn.rotation === page.rotation ? turn.skew : 0;
       setCrop(null);
       queuePreview();
       status("Recorte aplicado.");
-    });
+    }));
     get("crop-stage").querySelectorAll(".scan-handle").forEach((handle, index) => {
-      handle.addEventListener("pointerdown", (event) => handle.setPointerCapture(event.pointerId));
+      handle.addEventListener("pointerdown", (event) => {
+        handle.setPointerCapture(event.pointerId);
+        showLoupe(index);
+      });
       handle.addEventListener("pointermove", (event) => {
         if (!handle.hasPointerCapture(event.pointerId)) return;
         const rect = get("original").getBoundingClientRect();
         moveHandle(index, (event.clientX - rect.left) / rect.width, (event.clientY - rect.top) / rect.height);
+        showLoupe(index);
       });
+      for (const end of ["pointerup", "pointercancel", "lostpointercapture"]) handle.addEventListener(end, hideLoupe);
       handle.addEventListener("keydown", (event) => {
         const offsets = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
         const offset = offsets[event.key];

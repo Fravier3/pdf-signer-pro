@@ -173,6 +173,7 @@
             <button type="button" class="scan-handle" aria-label="Esquina superior derecha"></button>
             <button type="button" class="scan-handle" aria-label="Esquina inferior derecha"></button>
             <button type="button" class="scan-handle" aria-label="Esquina inferior izquierda"></button>
+            <canvas id="scan-loupe" width="120" height="120" hidden aria-hidden="true"></canvas>
           </div>
         </div>
         <div id="scan-crop-actions" class="scan-actions" hidden>
@@ -181,7 +182,7 @@
         </div>
         <div id="scan-adjustments">
           <div class="scan-fields">
-            <label>Filtro<select id="scan-filter"><option value="auto">Automático</option><option value="color">Color original</option><option value="gray">Blanco y negro</option></select></label>
+            <label>Filtro<select id="scan-filter"><option value="auto">Automático</option><option value="color">Color original</option><option value="gray">Escala de grises</option><option value="bw">Documento B/N</option></select></label>
             <label>Brillo<input id="scan-brightness" type="range" min="-50" max="50" value="0"></label>
             <label>Contraste<input id="scan-contrast" type="range" min="-50" max="100" value="0"></label>
           </div>

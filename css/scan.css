@@ -12,6 +12,8 @@
 #scan-crop-outline polygon { fill: #574bff22; stroke: #7f77ff; stroke-width: 2; vector-effect: non-scaling-stroke; }
 .scan-handle { position: absolute; transform: translate(-50%, -50%); width: 44px; height: 44px; border: 0; background: transparent; touch-action: none; cursor: grab; display: grid; place-items: center; }
 .scan-handle::after { content: ""; width: 15px; height: 15px; border-radius: 50%; background: #6257fa; border: 2px solid white; box-shadow: 0 1px 5px #0007; }
+#scan-loupe { position: absolute; z-index: 3; width: 104px; height: 104px; border-radius: 50%; border: 3px solid #fff; background: #000; box-shadow: 0 3px 14px #000a; pointer-events: none; }
+#scan-loupe[hidden] { display: none; }
 .scan-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(125px, 1fr)); gap: 12px; margin: 14px 0; }
 .scan-fields label { display: grid; gap: 5px; font-size: 14px; font-weight: 600; }
 .scan-fields select { min-height: 44px; background: var(--bg-elevated-solid); color: var(--text); border: 1px solid var(--separator); border-radius: 10px; padding: 6px; font-size: 16px; }

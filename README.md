@@ -45,6 +45,7 @@ PDFSignerPro/
 │   ├── pdfViewer.js                → visor PDF.js + gestos de zoom/pan
 │   ├── placement.js                 → mover/escalar/rotar/duplicar firmas
 │   ├── exportPdf.js                  → exportar PDF final con pdf-lib
+│   ├── scan.js / scanCamera.js / scanImage.js → escáner: cámara, detección de bordes, perspectiva, filtros
 │   └── lib/                           → PDF.js, pdf-lib, Motion y subconjunto de iconos Lucide
 ```
 
@@ -82,6 +83,15 @@ PDFSignerPro/
   permanente en un PDF nuevo; el original nunca se modifica.
 - Compartir con la Web Share API (AirDrop, WhatsApp, Mail, Mensajes, etc.)
   con fallback de descarga si el navegador no la soporta.
+- **Escáner (Scan)** con cámara en vivo o fotos de la galería, 100% local:
+  - Detecta los bordes de la hoja con tres métodos de respaldo (rectas, segmentación de la hoja y rectas
+    relajadas), así funciona también con fondos parecidos al papel o con poca luz.
+  - Endereza la perspectiva. Si hay una **esquina doblada**, la ignora y prolonga los lados rectos.
+  - **Nivela el texto** midiendo la inclinación de las líneas y **gira la página** si la foto salió de lado
+    (también al revés cuando está seguro; si no, no toca nada y queda el botón "Girar 90°").
+  - Filtros: Automático (quita sombras), Color original, Escala de grises y **Documento B/N**
+    (papel blanco puro y texto negro, estilo CamScanner).
+  - **Lupa** al arrastrar una esquina para ajustarla con precisión.
 - PWA instalable, con modo claro/oscuro/automático y funcionamiento offline
   una vez cacheada (service worker).
 
