@@ -10,7 +10,7 @@ const ThemeManager = (() => {
     document.documentElement.setAttribute("data-theme", effective);
     document.body.setAttribute("data-theme", effective);
     const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute("content", effective === "dark" ? "#0b0c10" : "#f2f2f7");
+    if (meta) meta.setAttribute("content", effective === "dark" ? "#000000" : "#f2f2f7");
     updateSegmentedUI(pref);
   }
 

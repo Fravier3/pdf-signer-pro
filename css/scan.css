@@ -86,7 +86,6 @@
   .scan-live-controls { gap: 6px; }
 }
 
-.scan-header { backdrop-filter: none; -webkit-backdrop-filter: none; }
 .scan-engine-grid, .scan-results { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem; margin: .75rem 0; }
 .scan-engine-grid button {
   display: grid;
