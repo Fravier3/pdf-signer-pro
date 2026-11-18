@@ -6,6 +6,7 @@
   const screens = {
     home: document.getElementById("screen-home"),
     viewer: document.getElementById("screen-viewer"),
+    scan: document.getElementById("screen-scan"),
     signatures: document.getElementById("screen-signatures"),
     newSignature: document.getElementById("screen-new-signature"),
     settings: document.getElementById("screen-settings"),
@@ -49,6 +50,7 @@
   const navHandlers = {
     home: () => showScreen("home"),
     viewer: () => showScreen("viewer"),
+    scan: () => showScreen("scan"),
     signatures: async () => {
       await SignaturesUI.refresh();
       showScreen("signatures");
@@ -106,6 +108,15 @@
     fileInputPdf.click();
   }
 
+  let viewerReturnScreen = "home";
+  async function openDocument(file, returnScreen = "home") {
+    await PdfViewer.openFile(file);
+    PlacementManager.reset();
+    viewerReturnScreen = returnScreen;
+    showScreen("viewer");
+  }
+
+  document.getElementById("btn-open-scan").addEventListener("click", navHandlers.scan);
   document.getElementById("btn-open-pdf").addEventListener("click", () => pickPdf("open"));
   document.getElementById("action-append-pdf").addEventListener("click", () => {
     BottomSheet.close();
@@ -127,9 +138,7 @@
         const added = await PdfViewer.appendFile(file);
         if (added) Toast.show(added === 1 ? "Se añadió 1 página al final" : `Se añadieron ${added} páginas al final`);
       } else {
-        await PdfViewer.openFile(file);
-        PlacementManager.reset();
-        showScreen("viewer");
+        await openDocument(file);
       }
     } catch (err) {
       console.error(err);
@@ -151,7 +160,7 @@
     PlacementManager.reset();
     // Sin documento ya no tiene sentido "volver al visor" tras guardar una firma.
     pendingReturnToViewer = false;
-    showScreen("home");
+    showScreen(viewerReturnScreen);
     applyUpdateIfSafe();
   }
 
@@ -352,6 +361,20 @@
     ThemeManager.init();
     BottomSheet.init();
     PdfExporter.init();
+    Scan.init({
+      openPdf: async (file) => {
+        if (PdfViewer.hasDocument()) {
+          const confirmed = await UI.Dialog.confirm({
+            title: "¿Abrir el escaneo?", message: "Se cerrará el PDF que tienes abierto.",
+            confirmText: "Abrir PDF",
+          });
+          if (!confirmed) return false;
+        }
+        await openDocument(file, "scan");
+        return true;
+      },
+      onIdle: applyUpdateIfSafe,
+    });
     SignaturePickerSheet.init();
     DrawSignature.init();
     await SignaturesUI.refresh();
@@ -373,6 +396,7 @@
       Toast.show("Nueva versión lista: se aplicará al cerrar el documento", 3500);
       return;
     }
+    if (Scan.hasWork()) return;
     updatePending = false;
     window.location.reload();
   }

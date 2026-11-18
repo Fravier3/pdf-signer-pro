@@ -1,0 +1,24 @@
+.scan-header { background: var(--bg); }
+.scan-pane { background: var(--bg-card); border: 1px solid var(--separator); }
+.scan-actions, .scan-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.scan-heading { justify-content: space-between; margin-bottom: 12px; }
+.scan-pane h2 { font-size: 16px; }
+.scan-note { margin-top: 10px; color: var(--text-secondary); font-size: 14px; }
+#scan-stage { display: grid; justify-items: center; }
+#scan-preview, #scan-original { display: block; max-width: 100%; max-height: min(48dvh, 440px); object-fit: contain; }
+#scan-crop-stage { position: relative; max-width: calc(100% - 24px); margin: 14px; }
+#scan-original { width: auto; height: auto; }
+#scan-crop-outline { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+#scan-crop-outline polygon { fill: #574bff22; stroke: #7f77ff; stroke-width: 2; vector-effect: non-scaling-stroke; }
+.scan-handle { position: absolute; transform: translate(-50%, -50%); width: 44px; height: 44px; border: 0; background: transparent; touch-action: none; cursor: grab; display: grid; place-items: center; }
+.scan-handle::after { content: ""; width: 15px; height: 15px; border-radius: 50%; background: #6257fa; border: 2px solid white; box-shadow: 0 1px 5px #0007; }
+.scan-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(125px, 1fr)); gap: 12px; margin: 14px 0; }
+.scan-fields label { display: grid; gap: 5px; font-size: 14px; font-weight: 600; }
+.scan-fields select { min-height: 44px; background: var(--bg-elevated-solid); color: var(--text); border: 1px solid var(--separator); border-radius: 10px; padding: 6px; font-size: 16px; }
+.scan-fields input { min-height: 40px; width: 100%; accent-color: var(--accent); }
+.scan-page-list { display: flex; gap: 8px; overflow-x: auto; padding: 4px; margin: 10px -4px; }
+.scan-page-thumb { flex: 0 0 72px; display: grid; gap: 5px; justify-items: center; padding: 5px; font: inherit; font-size: 13px; border: 1px solid var(--separator); border-radius: 10px; background: var(--bg-elevated); color: var(--text); cursor: pointer; }
+.scan-page-thumb[aria-pressed="true"] { outline: 2px solid var(--accent); }
+.scan-page-thumb img { width: 58px; height: 68px; object-fit: contain; }
+#scan-crop-actions { margin-top: 12px; }
+.scan-pane button:disabled { opacity: .45; }

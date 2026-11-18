@@ -16,6 +16,7 @@
 <link rel="icon" href="icons/favicon.png" />
 
 <link rel="stylesheet" href="css/style.css" />
+<link rel="stylesheet" href="css/scan.css" />
 </head>
 <body data-screen="home">
 
@@ -49,6 +50,9 @@
     </button>
     <button type="button" class="nav-item" data-nav="viewer" id="nav-document" hidden>
       <i data-icon="file-text"></i><span>Documento</span>
+    </button>
+    <button type="button" class="nav-item" data-nav="scan">
+      <i data-icon="scan-line"></i><span>Scan</span>
     </button>
     <button type="button" class="nav-item" data-nav="signatures">
       <i data-icon="signature"></i><span>Firmas</span>
@@ -91,6 +95,13 @@
           </div>
         </button>
 
+        <button class="home-card glass shine" id="btn-open-scan" data-enter>
+          <div class="home-card-icon"><i data-icon="scan-line"></i></div>
+          <div class="home-card-text">
+            <span class="home-card-title">Scan</span>
+            <span class="home-card-sub">Escanea hojas y conviértelas en un PDF</span>
+          </div>
+        </button>
         <button class="home-card glass shine" id="btn-my-signatures" data-enter>
           <div class="home-card-icon"><i data-icon="signature"></i></div>
           <div class="home-card-text">
@@ -129,6 +140,68 @@
       </section>
 
       <p class="home-footnote" data-enter><i data-icon="shield-check"></i> 100% local · Ningún archivo sale de tu dispositivo</p>
+    </div>
+  </div>
+</main>
+
+<main id="screen-scan" class="screen">
+  <header class="topbar scan-header">
+    <div class="topbar-title"><span class="title-icon"><i data-icon="scan-line"></i></span><h1>Scan</h1></div>
+    <span id="scan-count" class="count-badge" aria-live="polite">0 páginas</span>
+  </header>
+  <div class="screen-body" data-scroll>
+    <div class="container container-narrow">
+      <section class="panel scan-pane">
+        <div class="scan-actions">
+          <button id="scan-camera" class="btn primary" type="button"><i data-icon="scan-line"></i><span id="scan-camera-label">Escanear página</span></button>
+          <button id="scan-import" class="btn secondary" type="button"><i data-icon="file-up"></i>Elegir fotos</button>
+        </div>
+        <input id="scan-camera-input" type="file" accept="image/*" capture="environment" hidden>
+        <input id="scan-import-input" type="file" accept="image/*" multiple hidden>
+        <p class="scan-note" id="scan-status" role="status">Encuadra la hoja completa para detectar sus bordes.</p>
+      </section>
+      <section id="scan-editor" class="panel scan-pane" aria-labelledby="scan-editor-title" hidden>
+        <div class="scan-heading">
+          <h2 id="scan-editor-title">Página 1</h2>
+          <button id="scan-crop" class="btn secondary" type="button" aria-pressed="false">Ajustar bordes</button>
+        </div>
+        <div id="scan-stage">
+          <canvas id="scan-preview" aria-label="Vista previa de la página"></canvas>
+          <div id="scan-crop-stage" hidden>
+            <canvas id="scan-original" aria-label="Foto original"></canvas>
+            <svg id="scan-crop-outline" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><polygon /></svg>
+            <button type="button" class="scan-handle" aria-label="Esquina superior izquierda"></button>
+            <button type="button" class="scan-handle" aria-label="Esquina superior derecha"></button>
+            <button type="button" class="scan-handle" aria-label="Esquina inferior derecha"></button>
+            <button type="button" class="scan-handle" aria-label="Esquina inferior izquierda"></button>
+          </div>
+        </div>
+        <div id="scan-crop-actions" class="scan-actions" hidden>
+          <button id="scan-reset-crop" class="btn secondary" type="button">Detectar bordes</button>
+          <button id="scan-apply-crop" class="btn primary" type="button">Aplicar recorte</button>
+        </div>
+        <div id="scan-adjustments">
+          <div class="scan-fields">
+            <label>Filtro<select id="scan-filter"><option value="auto">Automático</option><option value="color">Color original</option><option value="gray">Blanco y negro</option></select></label>
+            <label>Brillo<input id="scan-brightness" type="range" min="-50" max="50" value="0"></label>
+            <label>Contraste<input id="scan-contrast" type="range" min="-50" max="100" value="0"></label>
+          </div>
+          <div class="scan-actions">
+            <button id="scan-rotate" class="btn secondary" type="button">Girar 90°</button>
+            <button id="scan-earlier" class="icon-btn" type="button" aria-label="Mover la página antes">←</button>
+            <button id="scan-later" class="icon-btn" type="button" aria-label="Mover la página después">→</button>
+            <button id="scan-remove" class="icon-btn" type="button" aria-label="Quitar página"><i data-icon="trash-2"></i></button>
+          </div>
+        </div>
+      </section>
+      <section id="scan-pages" class="panel scan-pane" aria-labelledby="scan-pages-title" hidden>
+        <h2 id="scan-pages-title">Páginas</h2>
+        <div id="scan-page-list" class="scan-page-list" aria-label="Orden del PDF"></div>
+        <div class="scan-actions">
+          <button id="scan-open-pdf" class="btn primary" type="button"><i data-icon="file-text"></i>Crear PDF</button>
+          <button id="scan-clear" class="btn secondary" type="button">Vaciar escaneo</button>
+        </div>
+      </section>
     </div>
   </div>
 </main>
@@ -459,6 +532,8 @@
 <script src="js/pdfViewer.js"></script>
 <script src="js/placement.js"></script>
 <script src="js/exportPdf.js"></script>
+<script src="js/scanImage.js"></script>
+<script src="js/scan.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>
