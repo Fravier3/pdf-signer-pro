@@ -1,6 +1,8 @@
 const Scan = (() => {
   const get = (name) => document.getElementById("scan-" + name);
   const pages = [];
+  const PREVIEW_EDGE = 1120;
+  const PDF_EDGE = 3600;
   let selected = -1;
   let source, flat, crop, busy = false;
   let previewFrame = 0;
@@ -92,8 +94,8 @@ const Scan = (() => {
 
   async function select(index) {
     const page = pages[index];
-    const next = page ? await ScanImage.read(page.file, 900) : null;
-    const corrected = next ? ScanImage.rectify(next, page.corners, 760) : null;
+    const next = page ? await ScanImage.read(page.file, 1400) : null;
+    const corrected = next ? ScanImage.rectify(next, page.corners, PREVIEW_EDGE) : null;
     selected = index;
     source = next;
     flat = corrected;
@@ -178,9 +180,19 @@ const Scan = (() => {
     for (const [index, page] of pages.entries()) {
       status("Preparando página " + (index + 1) + " de " + pages.length + "…");
       await new Promise((resolve) => setTimeout(resolve, 0));
-      const image = await ScanImage.read(page.file, 2200);
-      ScanImage.enhance(ScanImage.rectify(image, page.corners, 2000), output, page);
-      const blob = await new Promise((resolve) => output.toBlob(resolve, "image/jpeg", 0.88));
+      const image = await ScanImage.read(page.file);
+      let corrected;
+      let blob;
+      try {
+        corrected = ScanImage.rectify(image, page.corners, PDF_EDGE);
+        if (corrected !== image) image.width = image.height = 1;
+        ScanImage.enhance(corrected, output, page);
+        blob = await new Promise((resolve) => output.toBlob(resolve, "image/jpeg", 0.96));
+      } finally {
+        image.width = image.height = 1;
+        if (corrected && corrected !== image) corrected.width = corrected.height = 1;
+        output.width = output.height = 1;
+      }
       if (!blob) throw new Error("No se pudo procesar una página");
       const embedded = await pdf.embedJpg(await blob.arrayBuffer());
       const scale = 792 / Math.max(embedded.width, embedded.height);
@@ -215,7 +227,7 @@ const Scan = (() => {
     get("reset-crop").addEventListener("click", () => setCrop(ScanImage.detect(source) || ScanImage.fullFrame()));
     get("apply-crop").addEventListener("click", () => {
       const page = pages[selected];
-      flat = ScanImage.rectify(source, crop, 760);
+      flat = ScanImage.rectify(source, crop, PREVIEW_EDGE);
       page.corners = crop;
       page.detected = true;
       setCrop(null);

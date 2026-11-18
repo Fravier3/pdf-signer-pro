@@ -2,6 +2,7 @@
 const ScanImage = (() => {
   const fullFrame = () => [[0, 0], [1, 0], [1, 1], [0, 1]];
   const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+  const mix = (a, b, fraction) => a + (b - a) * fraction;
   const distance = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
   const cross = (a, b, c) => (b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0]);
   const isQuad = (points) => points.every((point, i) =>
@@ -15,16 +16,20 @@ const ScanImage = (() => {
     return element;
   }
 
+  function imageSize(width, height, limit = 4096) {
+    const scale = Math.min(1, limit / Math.max(width, height), Math.sqrt(9_000_000 / (width * height)));
+    return [Math.max(2, Math.round(width * scale)), Math.max(2, Math.round(height * scale))];
+  }
+
   async function read(file, limit) {
     const url = URL.createObjectURL(file);
     try {
       const image = new Image();
       image.src = url;
       await image.decode();
-      const scale = Math.min(1, limit / Math.max(image.naturalWidth, image.naturalHeight));
-      const result = canvas(Math.max(2, Math.round(image.naturalWidth * scale)),
-        Math.max(2, Math.round(image.naturalHeight * scale)));
-      const context = result.getContext("2d", { alpha: false });
+      const result = canvas(...imageSize(image.naturalWidth, image.naturalHeight, limit));
+      const context = result.getContext("2d", { alpha: false, willReadFrequently: true });
+      context.imageSmoothingQuality = "high";
       context.fillStyle = "#fff";
       context.fillRect(0, 0, result.width, result.height);
       context.drawImage(image, 0, 0, result.width, result.height);
@@ -127,12 +132,14 @@ const ScanImage = (() => {
   }
 
   function rectify(source, points, limit) {
+    if (Math.max(source.width, source.height) <= limit &&
+      fullFrame().every(([x, y], i) => x === points[i][0] && y === points[i][1])) return source;
+
     const [a, b, c, d] = points.map(([x, y]) => [x * (source.width - 1), y * (source.height - 1)]);
     // Proyección inversa del rectángulo al cuadrilátero de la foto.
-    const width = (distance(a, b) + distance(d, c)) / 2;
-    const height = (distance(a, d) + distance(b, c)) / 2;
-    const scale = Math.min(1, limit / Math.max(width, height));
-    const target = canvas(Math.max(2, Math.round(width * scale)), Math.max(2, Math.round(height * scale)));
+    const width = (distance(a, b) + distance(d, c)) / 2 + 1;
+    const height = (distance(a, d) + distance(b, c)) / 2 + 1;
+    const target = canvas(...imageSize(width, height, limit));
     const context = target.getContext("2d", { willReadFrequently: true });
     const pixels = source.getContext("2d").getImageData(0, 0, source.width, source.height).data;
     const rectified = context.createImageData(target.width, target.height);
@@ -167,36 +174,94 @@ const ScanImage = (() => {
     return target;
   }
 
+  const luminance = (data, i) => (data[i] * 77 + data[i + 1] * 150 + data[i + 2] * 29) >> 8;
+  const LIGHT_GRID = 10;
+
+  function paperGains(luma, width, height) {
+    const grid = LIGHT_GRID;
+    const gains = new Float32Array(grid * grid);
+    const bins = new Uint32Array(32);
+    for (let row = 0; row < grid; row++) {
+      const top = Math.floor(row * height / grid);
+      const bottom = Math.floor((row + 1) * height / grid);
+      const stepY = Math.max(1, Math.floor((bottom - top) / 24));
+      for (let column = 0; column < grid; column++) {
+        const left = Math.floor(column * width / grid);
+        const right = Math.floor((column + 1) * width / grid);
+        const stepX = Math.max(1, Math.floor((right - left) / 24));
+        bins.fill(0);
+        let count = 0;
+        for (let y = top; y < bottom; y += stepY) {
+          for (let x = left; x < right; x += stepX) {
+            bins[luma[y * width + x] >> 3]++;
+            count++;
+          }
+        }
+        // Los tonos más claros de cada zona estiman el papel bajo su propia luz.
+        let tone = 31;
+        let bright = bins[tone];
+        while (tone > 0 && bright < count * 0.20) bright += bins[--tone];
+        gains[row * grid + column] = clamp(244 / (tone * 8 + 7), 1, 1.65);
+      }
+    }
+    return gains;
+  }
+
   function enhance(source, target, { mode, brightness, contrast, rotation }) {
     const turned = rotation % 2 !== 0;
     target.width = turned ? source.height : source.width;
     target.height = turned ? source.width : source.height;
     const context = target.getContext("2d", { willReadFrequently: true });
+    context.save();
     context.translate(target.width / 2, target.height / 2);
     context.rotate(rotation * Math.PI / 2);
     context.drawImage(source, -source.width / 2, -source.height / 2);
-    const pixels = context.getImageData(0, 0, target.width, target.height);
+    context.restore();
+    if (mode === "color" && brightness === 0 && contrast === 0) return;
+
+    const { width, height } = target;
+    const pixels = context.getImageData(0, 0, width, height);
     const { data } = pixels;
     const automatic = mode === "auto";
-    const distribution = new Uint32Array(256);
-    const gray = (i) => (data[i] * 77 + data[i + 1] * 150 + data[i + 2] * 29) >> 8;
-    if (automatic) for (let i = 0; i < data.length; i += 16) distribution[gray(i)]++;
-    let white = 255;
-    if (automatic) {
-      let count = distribution[white];
-      while (white > 176 && count < data.length / 16 * 0.14) count += distribution[--white];
-    }
-    const factor = (1 + contrast / 100) * (automatic ? 1.10 : 1);
-    const light = 255 - white + brightness * 1.3;
-    for (let i = 0; i < data.length; i += 4) {
-      const luminosity = gray(i);
-      for (let channel = 0; channel < 3; channel++) {
-        const value = mode === "gray" ? luminosity : data[i + channel];
-        data[i + channel] = (value - 128) * factor + 128 + light;
+    const factor = (1 + contrast / 100) * (automatic ? 1.11 : 1);
+    const light = brightness * 1.3;
+    const luma = automatic ? new Uint8Array(width * height) : null;
+    if (luma) for (let i = 0; i < luma.length; i++) luma[i] = luminance(data, i * 4);
+    const gains = luma && paperGains(luma, width, height);
+    const grid = LIGHT_GRID;
+
+    for (let y = 0, p = 0; y < height; y++) {
+      const row = clamp((y + 0.5) * grid / height - 0.5, 0, grid - 1);
+      const top = Math.floor(row);
+      const bottom = Math.min(top + 1, grid - 1);
+      for (let x = 0; x < width; x++, p++) {
+        const offset = p * 4;
+        let gain = 1;
+        let detail = 0;
+        if (gains) {
+          const column = clamp((x + 0.5) * grid / width - 0.5, 0, grid - 1);
+          const left = Math.floor(column);
+          const right = Math.min(left + 1, grid - 1);
+          const upper = mix(gains[top * grid + left], gains[top * grid + right], column - left);
+          const lower = mix(gains[bottom * grid + left], gains[bottom * grid + right], column - left);
+          gain = mix(upper, lower, row - top);
+
+          // Realce suave de trazos, con límite para evitar halos grandes.
+          if (x > 0 && x < width - 1 && y > 0 && y < height - 1) {
+            const neighbors = (luma[p - 1] + luma[p + 1] + luma[p - width] + luma[p + width]) / 4;
+            const edge = luma[p] - neighbors;
+            detail = Math.abs(edge) > 5 ? clamp(edge * 0.36, -18, 18) : 0;
+          }
+        }
+        const gray = mode === "gray" ? luminance(data, offset) : null;
+        for (let channel = 0; channel < 3; channel++) {
+          const value = gray ?? data[offset + channel];
+          data[offset + channel] = (value * gain + detail - 128) * factor + 128 + light;
+        }
       }
     }
     context.putImageData(pixels, 0, 0);
   }
 
-  return { canvas, clamp, detect, enhance, fullFrame, isQuad, read, rectify };
+  return { canvas, clamp, detect, enhance, fullFrame, imageSize, isQuad, read, rectify };
 })();

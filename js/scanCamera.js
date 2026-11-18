@@ -13,6 +13,7 @@ const ScanCamera = (() => {
   const SEARCHING = "Encuadra la hoja completa.";
   let stream, timer, corners, previous;
   let session = 0;
+  let resumeAfterPicker = false;
 
   function setStatus(message) {
     if (status.textContent !== message) status.textContent = message;
@@ -36,6 +37,7 @@ const ScanCamera = (() => {
   }
 
   function close() {
+    resumeAfterPicker = false;
     stop();
     if (dialog.open) dialog.close();
   }
@@ -45,6 +47,7 @@ const ScanCamera = (() => {
     setStatus(message);
     shot.hidden = true;
     fallback.hidden = false;
+    fallback.disabled = false;
   }
 
   function examine() {
@@ -76,15 +79,25 @@ const ScanCamera = (() => {
 
   async function open() {
     if (dialog.open) return;
+    dialog.showModal();
+    await startPreview();
+  }
+
+  async function startPreview() {
     const opening = ++session;
     shot.disabled = true;
     shot.hidden = false;
-    fallback.hidden = true;
+    fallback.hidden = false;
+    fallback.disabled = false;
     setStatus("Abriendo cámara…");
-    dialog.showModal();
     try {
       const media = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+        video: {
+          facingMode: { ideal: "environment" },
+          width: { ideal: 3840 },
+          height: { ideal: 2880 },
+          frameRate: { ideal: 24 },
+        },
         audio: false,
       });
       if (opening !== session) {
@@ -107,6 +120,16 @@ const ScanCamera = (() => {
     }
   }
 
+  async function takeStillPhoto(track) {
+    if (!track || typeof ImageCapture !== "function") return null;
+    try {
+      const photo = await new ImageCapture(track).takePhoto();
+      return photo?.size ? photo : null;
+    } catch {
+      return null;
+    }
+  }
+
   function init({ onPhoto, onClose }) {
     document.getElementById("scan-live-close").addEventListener("click", close);
     dialog.addEventListener("cancel", (event) => {
@@ -118,7 +141,15 @@ const ScanCamera = (() => {
     document.addEventListener("visibilitychange", () => {
       if (document.hidden && stream) close();
     });
-    fallback.addEventListener("click", () => input.click());
+    fallback.addEventListener("click", () => {
+      resumeAfterPicker = !shot.hidden;
+      showFallback("Toma una foto con la cámara del dispositivo.");
+      input.click();
+    });
+    input.addEventListener("cancel", () => {
+      if (dialog.open && resumeAfterPicker) startPreview();
+      resumeAfterPicker = false;
+    });
     input.addEventListener("change", () => {
       const [file] = input.files;
       input.value = "";
@@ -129,13 +160,22 @@ const ScanCamera = (() => {
       const capturing = session;
       clearTimeout(timer);
       shot.disabled = true;
+      fallback.disabled = true;
       setStatus("Capturando…");
       try {
-        const scale = Math.min(1, 2200 / Math.max(video.videoWidth, video.videoHeight));
-        const frame = ScanImage.canvas(Math.round(video.videoWidth * scale), Math.round(video.videoHeight * scale));
+        const photo = await takeStillPhoto(stream?.getVideoTracks()[0]);
+        if (capturing !== session) return;
+        // La foto fija puede tener un encuadre distinto al del video.
+        if (photo) {
+          onPhoto(photo);
+          return;
+        }
+
+        const [width, height] = ScanImage.imageSize(video.videoWidth, video.videoHeight);
+        const frame = ScanImage.canvas(width, height);
         frame.getContext("2d", { alpha: false }).drawImage(video, 0, 0, frame.width, frame.height);
         const capturedCorners = ScanImage.detect(frame);
-        const blob = await new Promise((resolve) => frame.toBlob(resolve, "image/jpeg", 0.94));
+        const blob = await new Promise((resolve) => frame.toBlob(resolve, "image/jpeg", 0.98));
         if (capturing !== session) return;
         if (!blob) throw new Error("No se pudo guardar la captura");
         onPhoto(new File([blob], "Escaneo.jpg", { type: "image/jpeg" }), capturedCorners);

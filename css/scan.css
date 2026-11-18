@@ -77,6 +77,9 @@
 #scan-live-shot:disabled { opacity: .35; cursor: default; }
 #scan-live-fallback { background: #202428; color: inherit; }
 @media (max-height: 480px) {
+  .scan-live-controls { grid-template-columns: auto auto; justify-content: center; align-items: center; }
+  #scan-live-status { grid-column: 1 / -1; }
+  #scan-live-shot[hidden] + #scan-live-fallback { grid-column: 1 / -1; }
   #scan-live-shot { width: 54px; height: 54px; }
   .scan-live-controls { gap: 6px; }
 }
