@@ -3,7 +3,7 @@
  * una vez instalada. Estrategia: "cache first, network fallback" para
  * el shell de la app, y "network first" para navegación de documento.
  */
-const CACHE_NAME = "pdf-signer-pro-v13";
+const CACHE_NAME = "pdf-signer-pro-v14";
 
 const ENGINE_CACHE = "pdf-pro-opencv-4.10.0-release.1";
 const ENGINE_URL = "https://cdn.jsdelivr.net/npm/@techstark/opencv-js@4.10.0-release.1/dist/opencv.js";

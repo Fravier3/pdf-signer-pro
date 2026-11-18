@@ -158,6 +158,17 @@ ol{ padding: 0; list-style: none; }
 }
 .splash-title{ font-size: 20px; font-weight: 600; letter-spacing: .2px; }
 
+/* Fondo fijo al borde superior para la barra de estado de Safari en iOS. */
+.status-bar-fill{
+  position: fixed;
+  top: 0;
+  inset-inline: 0;
+  height: max(8px, var(--safe-top));
+  background-color: var(--bg);
+  pointer-events: none;
+  z-index: 2;
+}
+
 /* =============================== ESTRUCTURA =============================== */
 .app-shell{
   position: fixed; inset: 0; z-index: 1;
