@@ -116,14 +116,14 @@ const Scan = (() => {
     }
   }
 
-  async function addFiles(files) {
+  async function addFiles(files, capturedCorners) {
     const first = pages.length;
     let skipped = 0;
     for (const file of files) {
       status("Procesando foto " + (pages.length - first + skipped + 1) + " de " + files.length + "…");
       try {
         const image = await ScanImage.read(file, 900);
-        const detected = ScanImage.detect(image);
+        const detected = capturedCorners || ScanImage.detect(image);
         const corners = detected || ScanImage.fullFrame();
         const thumb = ScanImage.canvas(1, 1);
         ScanImage.enhance(ScanImage.rectify(image, corners, 96), thumb, {
@@ -196,15 +196,21 @@ const Scan = (() => {
 
   function init(options) {
     ({ openPdf, onIdle } = options);
-    for (const name of ["camera", "import"]) {
-      const input = get(name + "-input");
-      get(name).addEventListener("click", () => input.click());
-      input.addEventListener("change", () => {
-        const files = Array.from(input.files);
-        input.value = "";
-        if (files.length) run(() => addFiles(files));
-      });
-    }
+    ScanCamera.init({
+      onPhoto: (file, capturedCorners) => run(() => {
+        ScanCamera.close();
+        return addFiles([file], capturedCorners);
+      }),
+      onClose: onIdle,
+    });
+    get("camera").addEventListener("click", ScanCamera.open);
+    const input = get("import-input");
+    get("import").addEventListener("click", () => input.click());
+    input.addEventListener("change", () => {
+      const files = Array.from(input.files);
+      input.value = "";
+      if (files.length) run(() => addFiles(files));
+    });
     get("crop").addEventListener("click", editCrop);
     get("reset-crop").addEventListener("click", () => setCrop(ScanImage.detect(source) || ScanImage.fullFrame()));
     get("apply-crop").addEventListener("click", () => {
@@ -263,5 +269,5 @@ const Scan = (() => {
     get("open-pdf").addEventListener("click", () => run(createPdf, "No se pudo crear el PDF. Tus páginas siguen aquí."));
   }
 
-  return { init, hasWork: () => busy || pages.length > 0 };
+  return { init, hasWork: () => busy || pages.length > 0 || ScanCamera.isOpen() };
 })();

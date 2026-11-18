@@ -3,7 +3,7 @@
  * una vez instalada. Estrategia: "cache first, network fallback" para
  * el shell de la app, y "network first" para navegación de documento.
  */
-const CACHE_NAME = "pdf-signer-pro-v6";
+const CACHE_NAME = "pdf-signer-pro-v7";
 
 const APP_SHELL = [
   "./",
@@ -23,6 +23,7 @@ const APP_SHELL = [
   "./js/exportPdf.js",
   "./js/app.js",
   "./js/scan.js",
+  "./js/scanCamera.js",
   "./js/scanImage.js",
   "./js/lib/pdf.min.js",
   "./js/lib/pdf.worker.min.js",

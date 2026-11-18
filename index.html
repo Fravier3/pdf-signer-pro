@@ -156,7 +156,6 @@
           <button id="scan-camera" class="btn primary" type="button"><i data-icon="scan-line"></i><span id="scan-camera-label">Escanear página</span></button>
           <button id="scan-import" class="btn secondary" type="button"><i data-icon="file-up"></i>Elegir fotos</button>
         </div>
-        <input id="scan-camera-input" type="file" accept="image/*" capture="environment" hidden>
         <input id="scan-import-input" type="file" accept="image/*" multiple hidden>
         <p class="scan-note" id="scan-status" role="status">Encuadra la hoja completa para detectar sus bordes.</p>
       </section>
@@ -205,6 +204,25 @@
     </div>
   </div>
 </main>
+
+<dialog id="scan-live" aria-labelledby="scan-live-title">
+  <div class="scan-live-layout">
+    <header class="scan-live-header">
+      <button id="scan-live-close" class="icon-btn" type="button" aria-label="Cerrar cámara"><i data-icon="chevron-left"></i></button>
+      <h2 id="scan-live-title">Escanear página</h2>
+    </header>
+    <div class="scan-live-view">
+      <video id="scan-live-video" autoplay muted playsinline aria-hidden="true"></video>
+      <svg id="scan-live-guide" preserveAspectRatio="xMidYMid meet" aria-hidden="true"><polygon /></svg>
+    </div>
+    <div class="scan-live-controls">
+      <p id="scan-live-status" role="status"></p>
+      <button id="scan-live-shot" type="button" aria-label="Tomar foto" disabled></button>
+      <button id="scan-live-fallback" class="btn secondary" type="button" hidden>Usar cámara del teléfono</button>
+      <input id="scan-live-file" type="file" accept="image/*" capture="environment" hidden>
+    </div>
+  </div>
+</dialog>
 
 <!-- ======================= VISOR PDF ======================= -->
 <section id="screen-viewer" class="screen">
@@ -533,6 +551,7 @@
 <script src="js/placement.js"></script>
 <script src="js/exportPdf.js"></script>
 <script src="js/scanImage.js"></script>
+<script src="js/scanCamera.js"></script>
 <script src="js/scan.js"></script>
 <script src="js/app.js"></script>
 </body>
