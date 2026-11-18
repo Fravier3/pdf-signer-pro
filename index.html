@@ -154,15 +154,15 @@
       <section class="panel scan-pane scan-engines" aria-labelledby="scan-engine-title">
         <h2 id="scan-engine-title">Motor de escaneo</h2>
         <div class="scan-engine-grid" id="scan-engine-grid">
-          <button type="button" data-engine="scanlio" aria-disabled="true"><i data-icon="scan-line"></i><strong>Scanlio</strong><small>Permiso pendiente</small></button>
+          <button type="button" data-engine="pdfpro" aria-pressed="true"><i data-icon="scan-line"></i><strong>PDF Pro</strong><small>Escáner original</small></button>
           <button type="button" data-engine="nitidoc" aria-pressed="false"><i data-icon="scan-line"></i><strong>Nitidoc</strong><small>OpenCV · procesamiento local</small></button>
-          <button type="button" data-engine="scanner" aria-disabled="true"><i data-icon="scan-line"></i><strong>Scanner</strong><small>Permiso pendiente</small></button>
-          <button type="button" data-engine="compare" aria-pressed="false"><i data-icon="file-text"></i><strong>Comparar los 3</strong><small>2 motores disponibles</small></button>
+          <button type="button" data-engine="scanic" aria-pressed="false"><i data-icon="scan-line"></i><strong>Scanic</strong><small>JavaScript y WASM</small></button>
+          <button type="button" data-engine="quadscan" aria-pressed="false"><i data-icon="scan-line"></i><strong>Quadscan</strong><small>Modelo local DocAligner</small></button>
         </div>
         <div class="scan-engine-footer">
-          <button id="scan-classic" type="button" class="btn secondary" aria-pressed="true">PDF Pro</button>
+          <button id="scan-compare-mode" type="button" class="btn secondary" data-engine="compare" aria-pressed="false">Comparar motores</button>
           <button id="scan-favorite" type="button" class="btn secondary" aria-pressed="false">Marcar favorito</button>
-          <a href="vendor/nitidoc/SOURCE.md">Código fuente de Nitidoc</a>
+          <a href="vendor/SCANNERS.md">Fuentes y licencias</a>
         </div>
       </section>
       <section class="panel scan-pane">
@@ -198,13 +198,16 @@
         </div>
         <div id="scan-adjustments">
           <div class="scan-fields">
-            <label>Filtro<select id="scan-filter"><option value="auto">Automático</option><option value="color">Original</option><option value="vivid">Color mejorado</option><option value="magic">Documento mágico</option><option value="gray">Escala de grises</option><option value="bw">Documento B/N</option></select></label>
+            <label>Filtro<select id="scan-filter"><option value="auto">Mejora automática</option><option value="color">Original</option><option value="white">Papel blanco</option><option value="vivid">Color mejorado</option><option value="gray">Escala de grises</option><option value="bw">Documento B/N</option></select></label>
             <label>Brillo<input id="scan-brightness" type="range" min="-50" max="50" value="0"></label>
             <label>Contraste<input id="scan-contrast" type="range" min="-50" max="100" value="0"></label>
             <label>Saturación<input id="scan-saturation" type="range" min="-100" max="100" value="0"></label>
             <label>Nitidez<input id="scan-sharpness" type="range" min="0" max="100" value="0"></label>
           </div>
           <div class="scan-actions">
+            <button id="scan-review" class="btn secondary" type="button">Antes / después</button>
+            <button id="scan-duplicate" class="btn secondary" type="button">Duplicar</button>
+            <button id="scan-apply-all" class="btn secondary" type="button">Aplicar filtro a todas</button>
             <button id="scan-rotate" class="btn secondary" type="button">Girar 90°</button>
             <button id="scan-earlier" class="icon-btn" type="button" aria-label="Mover la página antes">←</button>
             <button id="scan-later" class="icon-btn" type="button" aria-label="Mover la página después">→</button>
@@ -215,8 +218,10 @@
       <section id="scan-pages" class="panel scan-pane" aria-labelledby="scan-pages-title" hidden>
         <h2 id="scan-pages-title">Páginas</h2>
         <div id="scan-page-list" class="scan-page-list" aria-label="Orden del PDF"></div>
+        <progress id="scan-progress" aria-label="Generación del PDF" hidden></progress>
         <div class="scan-fields scan-format">
-          <label>Tamaño del PDF<select id="scan-format"><option value="original">Proporciones originales</option><option value="letter">Carta</option><option value="a4">A4</option></select></label>
+          <label>Tamaño del PDF<select id="scan-format"><option value="original">Automático</option><option value="letter">Carta</option><option value="a4">A4</option><option value="legal">Legal</option></select></label>
+          <label>Calidad<select id="scan-quality"><option value="max">Máxima calidad</option><option value="high">Alta calidad</option><option value="balanced">Equilibrada</option><option value="small">Tamaño reducido</option></select></label>
         </div>
         <div class="scan-actions">
           <button id="scan-open-pdf" class="btn primary" type="button"><i data-icon="file-text"></i>Crear PDF</button>
@@ -592,6 +597,8 @@
 <script src="js/placement.js"></script>
 <script src="js/exportPdf.js"></script>
 <script src="js/scanImage.js"></script>
+<script src="js/scanDraft.js"></script>
+<script src="js/scanRasters.js"></script>
 <script src="js/scanEngines.js"></script>
 <script src="js/scanCamera.js"></script>
 <script src="js/scan.js"></script>

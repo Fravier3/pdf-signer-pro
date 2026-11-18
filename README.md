@@ -102,12 +102,12 @@ ocurre enteramente en el navegador del usuario. La aplicación no tiene
 backend, no usa bases de datos externas y no realiza ninguna petición de
 red con datos del usuario.
 
-### Motores de escaneo
+### Escaneo
 
-- **Nitidoc** emplea su worker original de detección, corrección de perspectiva y filtros, con OpenCV.js fijado a la versión 4.10.0-release.1. La primera descarga de OpenCV necesita conexión. Cuando la PWA controla la página, guarda esa dependencia para trabajar sin conexión.
-- **PDF Pro** mantiene su detector, corrección de perspectiva y filtros propios. En ambos casos el giro por orientación del texto y el armado del PDF los hace PDF Pro.
-- **Comparar** procesa la misma foto con ambos motores disponibles. Las cifras muestran dimensiones, peso del JPEG al 98 % y tiempo local de procesamiento tras iniciar cada motor. Los motores se eligen por página y la exportación admite Carta, A4 y proporciones originales.
-- **Scanlio** y **Scanner** requieren permiso de redistribución antes de incorporarlos al sitio publicado. Las tarjetas siguen pendientes.
-- Compatibilidad de captura: la cámara integrada usa la foto fija si el navegador expone `ImageCapture`. También ofrece la cámara nativa del dispositivo y el fotograma de vídeo como alternativas. El procesamiento final parte de la foto original y limita la entrada a 12.5 megapíxeles y 5760 píxeles por lado para cuidar memoria. Los originales conservan su archivo en la sesión.
+- Cuatro detecciones y correcciones de perspectiva independientes: PDF Pro, Nitidoc, Scanic clásico (JS/WASM) y Quadscan (DocAligner y ONNX Runtime Web).
+- Comparación de motores a partir de una sola foto y comparación del original recortado contra los ajustes de cada página. El filtro Papel blanco y la mejora automática usan la estimación de iluminación de Scancat.
+- Borrador local en IndexedDB, con duplicación sin copiar el archivo de origen, cambio de orden por arrastre o botones, repetición de foto, recorte, filtros individuales y filtro para todas las páginas.
+- Un PDF por borrador, con cuatro niveles de calidad y tamaño Automático, Carta, A4 o Legal. El visor existente permite guardar, compartir y editar. Máxima calidad usa JPEG 99 %, con un máximo de 12.5 megapíxeles y 5760 píxeles por lado por entrada para controlar la memoria.
+- La cámara integrada pide la máxima resolución de foto fija que el navegador ofrece, con alternativas de cámara del dispositivo y fotograma del vídeo. Los documentos nunca se envían a un servidor. Nitidoc y Quadscan descargan sus dependencias solo cuando se usan por primera vez. El service worker puede guardarlas para uso posterior sin conexión.
 
-[Licencia y código fuente del componente Nitidoc](vendor/nitidoc/SOURCE.md)
+[Fuentes y licencias de los motores](vendor/SCANNERS.md)

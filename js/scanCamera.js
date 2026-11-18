@@ -123,7 +123,7 @@ const ScanCamera = (() => {
     fallback.disabled = false;
     setStatus("Abriendo cámara…");
     guideFailed = false;
-    loading = previewMotor === "nitidoc";
+    loading = previewMotor !== "pdfpro";
     if (loading) {
       ScanEngines.prepare(previewMotor).then(() => {
         if (opening === session) loading = false;
@@ -131,7 +131,7 @@ const ScanCamera = (() => {
         if (opening === session) {
           loading = false;
           guideFailed = true;
-          setStatus("Nitidoc no pudo abrir la guía. Puedes capturar manualmente.");
+          setStatus(ScanEngines.names[previewMotor] + " no pudo abrir la guía. Puedes cambiar de motor.");
         }
       });
     }
@@ -160,7 +160,7 @@ const ScanCamera = (() => {
       video.srcObject = media;
       await video.play();
       if (opening === session) {
-        if (loading) setStatus("Cargando guía de Nitidoc…");
+        if (loading) setStatus("Cargando " + ScanEngines.names[previewMotor] + "…");
         examine(opening);
       }
     } catch {

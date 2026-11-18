@@ -2,15 +2,21 @@ const Scan = (() => {
   const get = (name) => document.getElementById("scan-" + name);
   const pages = [];
   const PREVIEW_EDGE = 1120;
-  const PDF_EDGE = 5760;
+  const EXPORT_QUALITY = {
+    max: { edge: 5760, pixels: 12_500_000, jpeg: .99 },
+    high: { edge: 3600, pixels: 9_000_000, jpeg: .95 },
+    balanced: { edge: 2480, pixels: 4_800_000, jpeg: .90 },
+    small: { edge: 1680, pixels: 2_400_000, jpeg: .80 },
+  };
+  const motors = ["pdfpro", "nitidoc", "scanic", "quadscan"];
   const DEFAULT_STATUS = "Encuadra la hoja completa para detectar sus bordes.";
   const FAVORITE_KEY = "pdfpro-scan-favorite";
-  const engineButtons = [...get("engine-grid").querySelectorAll("[data-engine]")];
+  const engineButtons = [...get("engine-grid").querySelectorAll("[data-engine]"), get("compare-mode")];
   const compareDialog = get("compare");
   const zoomDialog = get("zoom");
   let favorite;
   try { favorite = localStorage.getItem(FAVORITE_KEY); } catch {}
-  if (!["pdfpro", "nitidoc"].includes(favorite)) favorite = null;
+  if (!motors.includes(favorite)) favorite = null;
   let engine = favorite || "pdfpro";
   let retake = -1;
   let comparisonUrls = [];
@@ -19,9 +25,9 @@ const Scan = (() => {
   let selected = -1;
   let source, flat, crop, busy = false;
   let previewFrame = 0;
-  let openPdf, onIdle;
+  let openPdf, onIdle, entered = false, drag;
   const controls = ["camera", "import", "crop", "reset-crop", "apply-crop", "filter", "brightness",
-    "contrast", "saturation", "sharpness", "rotate", "earlier", "later", "remove", "open-pdf", "clear", "retake", "classic", "favorite", "format"];
+    "contrast", "saturation", "sharpness", "rotate", "earlier", "later", "remove", "open-pdf", "clear", "retake", "favorite", "format", "quality", "review", "duplicate", "apply-all"];
 
   function lock(value) {
     busy = value;
@@ -114,7 +120,8 @@ const Scan = (() => {
         const width = preview.width * scale;
         const height = preview.height * scale;
         thumb.getContext("2d").drawImage(preview, (72 - width) / 2, (86 - height) / 2, width, height);
-        page.thumbnail = thumb.toDataURL();
+        page.thumbnail = thumb.toDataURL("image/jpeg", .83);
+        thumb.width = thumb.height = 1;
         const image = get("page-list").children[selected]?.querySelector("img");
         if (image) image.src = page.thumbnail;
       } catch (error) {
@@ -130,16 +137,15 @@ const Scan = (() => {
   function selectEngine(value, announce = true) {
     engine = value;
     for (const button of engineButtons) {
-      if (!button.hasAttribute("aria-disabled")) button.setAttribute("aria-pressed", String(engine === button.dataset.engine));
+      button.setAttribute("aria-pressed", String(engine === button.dataset.engine));
     }
-    get("classic").setAttribute("aria-pressed", String(engine === "pdfpro"));
     get("active-engine").textContent = ScanEngines.names[engine];
     const star = get("favorite");
     star.disabled = engine === "compare";
     star.setAttribute("aria-pressed", String(engine === favorite));
     star.textContent = engine === favorite ? "Quitar favorito" : "Marcar favorito";
     get("import-input").multiple = engine !== "compare";
-    if (announce) status(engine === "compare" ? "Toma o elige una foto para comparar Nitidoc y PDF Pro." : DEFAULT_STATUS);
+    if (announce) status(engine === "compare" ? "Toma o elige una foto para comparar los cuatro motores." : DEFAULT_STATUS);
   }
 
   function refresh() {
@@ -149,7 +155,13 @@ const Scan = (() => {
     get("pages").hidden = !pages.length;
     get("count").textContent = pages.length === 1 ? "1 página" : pages.length + " páginas";
     get("camera-label").textContent = pages.length ? "Escanear otra" : "Escanear página";
-    get("page-list").replaceChildren(...pages.map((item, index) => {
+    const list = get("page-list");
+    const scroll = list.scrollLeft;
+    const thumbnails = document.createDocumentFragment();
+    for (const [index, item] of pages.entries()) {
+      const entry = document.createElement("div");
+      entry.className = "scan-thumb-entry";
+      entry.dataset.index = index;
       const button = document.createElement("button");
       button.type = "button";
       button.className = "scan-page-thumb";
@@ -164,8 +176,16 @@ const Scan = (() => {
         await select(index);
         if (pages[index].detected) status("Página enderezada. Puedes revisar sus bordes.");
       }));
-      return button;
-    }));
+      const grip = document.createElement("span");
+      grip.className = "scan-thumb-grip";
+      grip.title = "Arrastrar página " + (index + 1);
+      grip.setAttribute("aria-hidden", "true");
+      grip.textContent = "⠿";
+      entry.append(button, grip);
+      thumbnails.append(entry);
+    }
+    list.replaceChildren(thumbnails);
+    list.scrollLeft = scroll;
     if (!page) { previewVersion++; return; }
     get("editor-title").textContent = "Página " + (selected + 1);
     const name = document.createElement("small");
@@ -181,7 +201,7 @@ const Scan = (() => {
 
   async function select(index) {
     const page = pages[index];
-    const next = page ? await ScanImage.read(page.file, PREVIEW_EDGE) : null;
+    const next = page ? await ScanImage.read(await fileFor(page), PREVIEW_EDGE) : null;
     let corrected;
     try {
       corrected = next ? await ScanEngines.rectify(page.engine, next, page.corners, PREVIEW_EDGE) : null;
@@ -192,6 +212,7 @@ const Scan = (() => {
     if (flat && flat !== source) flat.width = flat.height = 1;
     if (source) source.width = source.height = 1;
     selected = index;
+    if (!next) { get("original").width = get("original").height = 1; get("preview").width = get("preview").height = 1; }
     source = next;
     flat = corrected;
     setCrop(null);
@@ -213,6 +234,38 @@ const Scan = (() => {
     }
   }
 
+  function fileFor(page) {
+    return page.file || ScanDraft.read(page.sourceId);
+  }
+
+  async function replacePages(next, original, discarded) {
+    await ScanDraft.save(next, original, discarded);
+    pages.length = 0;
+    for (const page of next) pages.push(page);
+  }
+
+  async function storePage(page, index) {
+    const next = pages.slice();
+    const key = "image-" + crypto.randomUUID();
+    const previous = next[index]?.sourceId;
+    const { file, ...metadata } = page;
+    next[index] = { ...metadata, sourceId: key };
+    await replacePages(next, { file, key }, previous ? [previous] : []);
+  }
+
+  async function restore() {
+    if (entered) return;
+    entered = true;
+    await run(async () => {
+      const saved = await ScanDraft.read("pages") || [];
+      if (!saved.length) return;
+      for (const page of saved) pages.push(page);
+      refresh();
+      await select(0);
+      status("Sesión de escaneo recuperada.");
+    }, "No se pudo abrir el borrador local. Revisa el almacenamiento del navegador.");
+  }
+
   async function analyze(file, motor) {
     const probe = await ScanImage.read(file, 720);
     let image, corrected;
@@ -231,7 +284,8 @@ const Scan = (() => {
       const reduced = ScanImage.canvas(...ScanImage.imageSize(corrected.width, corrected.height, 96));
       reduced.getContext("2d").drawImage(corrected, 0, 0, reduced.width, reduced.height);
       await ScanEngines.render(reduced, thumb, page);
-      page.thumbnail = thumb.toDataURL();
+      page.thumbnail = thumb.toDataURL("image/jpeg", .83);
+      thumb.width = thumb.height = reduced.width = reduced.height = 1;
       return page;
     } finally {
       for (const canvas of new Set([probe, image, corrected])) if (canvas) canvas.width = canvas.height = 1;
@@ -239,18 +293,15 @@ const Scan = (() => {
   }
 
   async function addFiles(files, motor, replacement = -1) {
-    const first = pages.length;
     let last = -1, failed = 0;
     for (const [index, file] of files.entries()) {
       status("Procesando foto " + (index + 1) + " de " + files.length + "…");
       try {
         const page = await analyze(file, motor);
-        if (replacement >= 0) {
-          pages[replacement] = page;
-          last = replacement;
-        } else {
-          last = pages.push(page) - 1;
-        }
+        const saveIndex = replacement >= 0 ? replacement : pages.length;
+        await storePage(page, saveIndex);
+        last = saveIndex;
+        get("count").textContent = pages.length + (pages.length === 1 ? " página" : " páginas");
       } catch (error) {
         console.warn("Error procesando foto", error);
         failed++;
@@ -264,24 +315,24 @@ const Scan = (() => {
       status([message, quality?.isDark && "Poca luz.", quality?.isBlurry && "La foto podría estar borrosa."].filter(Boolean).join(" "));
     }
     if (failed) {
-      const detail = motor === "nitidoc" && pages.length === first && last < 0
-        ? "Nitidoc no pudo procesar la imagen. Revisa la conexión inicial del motor o prueba con JPG o PNG."
-        : "Algunas fotos no se pudieron procesar. Prueba con JPG o PNG.";
+      const detail = last < 0
+        ? ScanEngines.names[motor] + " no pudo guardar las fotos. Revisa la conexión inicial, el formato y el espacio del navegador."
+        : "Algunas fotos no se pudieron guardar. Revisa el formato o el espacio del navegador.";
       status(detail);
       Toast.show(detail);
     }
   }
 
-  async function renderPage(page) {
-    const image = await ScanImage.read(page.file, PDF_EDGE, 12_500_000);
+  async function renderPage(page, quality = EXPORT_QUALITY.max) {
+    const image = await ScanImage.read(await fileFor(page), quality.edge, quality.pixels);
     const output = ScanImage.canvas(1, 1);
     let corrected;
     try {
-      corrected = await ScanEngines.rectify(page.engine, image, page.corners, PDF_EDGE);
+      corrected = await ScanEngines.rectify(page.engine, image, page.corners, quality.edge);
       if (corrected !== image) image.width = image.height = 1;
       await ScanEngines.render(corrected, output, page);
       const { width, height } = output;
-      const blob = await new Promise((resolve) => output.toBlob(resolve, "image/jpeg", 0.98));
+      const blob = await new Promise((resolve) => output.toBlob(resolve, "image/jpeg", quality.jpeg));
       if (!blob) throw new Error("No se pudo codificar la página");
       return { blob, width, height };
     } finally {
@@ -340,6 +391,7 @@ const Scan = (() => {
   }
 
   async function compare(file, replacement) {
+    get("compare-title").textContent = "Comparar motores";
     compareDialog.showModal();
     const live = get("compare-status");
     live.textContent = "Preparando la foto original…";
@@ -356,7 +408,7 @@ const Scan = (() => {
     } finally {
       URL.revokeObjectURL(url);
     }
-    for (const motor of ["nitidoc", "pdfpro"]) {
+    for (const motor of motors) {
       if (!compareDialog.open) return;
       const label = ScanEngines.names[motor];
       live.textContent = "Procesando con " + label + "…";
@@ -377,20 +429,32 @@ const Scan = (() => {
         showResult(label, { message: "No se pudo procesar esta foto." });
       }
     }
-    showResult("Scanlio", { message: "Permiso de redistribución pendiente." });
-    showResult("Scanner", { message: "Permiso de redistribución pendiente." });
     get("compare-results").querySelectorAll(".btn.primary").forEach((button) => { button.disabled = false; });
     live.textContent = "Amplía las imágenes y elige el resultado para tu PDF.";
   }
 
   async function selectForComparison(page, replacement) {
     const index = replacement >= 0 ? replacement : pages.length;
-    const previous = pages[index];
-    pages[index] = page;
-    try { await select(index); }
-    catch (error) {
-      if (previous) pages[index] = previous;
-      else pages.pop();
+    await storePage(page, index);
+    await select(index);
+  }
+
+  async function reviewPage() {
+    const page = pages[selected];
+    get("compare-title").textContent = "Antes y después";
+    const live = get("compare-status");
+    live.textContent = "Preparando las vistas a resolución completa…";
+    compareDialog.showModal();
+    try {
+      const original = await renderPage({ ...page, mode: "color", brightness: 0, contrast: 0, saturation: 0, sharpness: 0 });
+      if (!compareDialog.open) return;
+      showResult("Antes · Original recortado", original);
+      const result = await renderPage(page);
+      if (!compareDialog.open) return;
+      showResult("Después · Ajustes actuales", result);
+      live.textContent = "Toca una imagen para verla a pantalla completa.";
+    } catch (error) {
+      compareDialog.close();
       throw error;
     }
   }
@@ -412,40 +476,84 @@ const Scan = (() => {
     drawHandles();
   }
 
-  function swap(offset) {
-    const next = selected + offset;
-    [pages[next], pages[selected]] = [pages[selected], pages[next]];
-    selected = next;
+  async function movePage(from, to) {
+    if (from === to || to < 0 || to >= pages.length) return;
+    const activePage = pages[selected];
+    const next = pages.slice();
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    await replacePages(next);
+    selected = pages.indexOf(activePage);
     refresh();
-    lock(false);
+  }
+
+  function installDrag() {
+    const list = get("page-list");
+    list.addEventListener("pointerdown", (event) => {
+      const grip = event.target.closest(".scan-thumb-grip");
+      if (!grip || busy || event.button !== 0) return;
+      const entry = grip.parentElement;
+      drag = { pointer: event.pointerId, from: Number(entry.dataset.index), to: Number(entry.dataset.index), entry };
+      entry.classList.add("dragging");
+      list.setPointerCapture(event.pointerId);
+    });
+    list.addEventListener("pointermove", (event) => {
+      if (drag?.pointer !== event.pointerId) return;
+      const bounds = list.getBoundingClientRect();
+      if (event.clientX < bounds.left + 40) list.scrollLeft -= 15;
+      if (event.clientX > bounds.right - 40) list.scrollLeft += 15;
+      const target = document.elementFromPoint(event.clientX, event.clientY)?.closest(".scan-thumb-entry");
+      if (!target || !list.contains(target)) return;
+      list.children[drag.to]?.classList.remove("drop-target");
+      drag.to = Number(target.dataset.index);
+      target.classList.add("drop-target");
+    });
+    function end(event) {
+      if (drag?.pointer !== event.pointerId) return;
+      const { entry, from, to } = drag;
+      drag = null;
+      entry.classList.remove("dragging");
+      list.children[to]?.classList.remove("drop-target");
+      if (event.type === "pointerup" && from !== to) run(() => movePage(from, to));
+    }
+    for (const event of ["pointerup", "pointercancel", "lostpointercapture"]) list.addEventListener(event, end);
   }
 
   async function createPdf() {
     const pdf = await PDFLib.PDFDocument.create();
-    const sizes = { letter: [612, 792], a4: [595.28, 841.89] };
+    const sizes = { letter: [612, 792], a4: [595.28, 841.89], legal: [612, 1008] };
     const paper = sizes[get("format").value];
-    for (const [index, page] of pages.entries()) {
-      status("Preparando página " + (index + 1) + " de " + pages.length + "…");
-      await new Promise((resolve) => setTimeout(resolve, 0));
-      const { blob, width, height } = await renderPage(page);
-      const embedded = await pdf.embedJpg(await blob.arrayBuffer());
-      const originalScale = 792 / Math.max(width, height);
-      const [pageWidth, pageHeight] = !paper
-        ? [width * originalScale, height * originalScale]
-        : width > height ? [paper[1], paper[0]] : paper;
-      const scale = Math.min(pageWidth / width, pageHeight / height);
-      const drawWidth = width * scale;
-      const drawHeight = height * scale;
-      const output = pdf.addPage([pageWidth, pageHeight]);
-      if (paper) output.drawRectangle({ x: 0, y: 0, width: pageWidth, height: pageHeight, color: PDFLib.rgb(1, 1, 1) });
-      output.drawImage(embedded, {
-        x: (pageWidth - drawWidth) / 2, y: (pageHeight - drawHeight) / 2, width: drawWidth, height: drawHeight,
-      });
-    }
-    const date = new Date();
-    const stamp = [date.getFullYear(), date.getMonth() + 1, date.getDate()].map((n) => String(n).padStart(2, "0")).join("-");
-    const opened = await openPdf(new File([await pdf.save()], "Escaneo-" + stamp + ".pdf", { type: "application/pdf" }));
-    status(opened ? "PDF creado. Puedes seguir editando estas páginas." : "Tus páginas están listas para generar el PDF.");
+    const quality = EXPORT_QUALITY[get("quality").value];
+    const progress = get("progress");
+    progress.max = pages.length;
+    progress.value = 0;
+    progress.hidden = false;
+    try {
+      for (const [index, page] of pages.entries()) {
+        status("Preparando página " + (index + 1) + " de " + pages.length + "…");
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        const { blob, width, height } = await renderPage(page, quality);
+        const embedded = await pdf.embedJpg(await blob.arrayBuffer());
+        const originalScale = 792 / Math.max(width, height);
+        const [pageWidth, pageHeight] = !paper
+          ? [width * originalScale, height * originalScale]
+          : width > height ? [paper[1], paper[0]] : paper;
+        const scale = Math.min(pageWidth / width, pageHeight / height);
+        const drawWidth = width * scale;
+        const drawHeight = height * scale;
+        const output = pdf.addPage([pageWidth, pageHeight]);
+        if (paper) output.drawRectangle({ x: 0, y: 0, width: pageWidth, height: pageHeight, color: PDFLib.rgb(1, 1, 1) });
+        output.drawImage(embedded, {
+          x: (pageWidth - drawWidth) / 2, y: (pageHeight - drawHeight) / 2, width: drawWidth, height: drawHeight,
+        });
+        progress.value = index + 1;
+      }
+      status("Guardando el PDF…");
+      const date = new Date();
+      const stamp = [date.getFullYear(), date.getMonth() + 1, date.getDate()].map((n) => String(n).padStart(2, "0")).join("-");
+      const opened = await openPdf(new File([await pdf.save()], "Escaneo-" + stamp + ".pdf", { type: "application/pdf" }));
+      status(opened ? "PDF creado. Puedes seguir editando estas páginas." : "Tus páginas están listas para generar el PDF.");
+    } finally { progress.hidden = true; }
   }
 
   function init(options) {
@@ -467,14 +575,8 @@ const Scan = (() => {
       retake = selected;
       ScanCamera.open(pages[selected].engine);
     });
-    for (const button of engineButtons) button.addEventListener("click", () => {
-      if (button.getAttribute("aria-disabled") === "true") {
-        status(button.querySelector("strong").textContent + " requiere permiso de redistribución.");
-        return;
-      }
-      selectEngine(button.dataset.engine);
-    });
-    get("classic").addEventListener("click", () => selectEngine("pdfpro"));
+    for (const button of engineButtons) button.addEventListener("click", () => selectEngine(button.dataset.engine));
+    installDrag();
     get("favorite").addEventListener("click", () => {
       favorite = engine === favorite ? null : engine;
       try {
@@ -531,6 +633,7 @@ const Scan = (() => {
       page.detected = true;
       const turn = ScanImage.orientation(flat);
       page.skew = turn.rotation === page.rotation ? turn.skew : 0;
+      await ScanDraft.save(pages);
       setCrop(null);
       queuePreview();
       status("Recorte aplicado.");
@@ -561,16 +664,36 @@ const Scan = (() => {
         pages[selected][property] = id === "filter" ? event.target.value : Number(event.target.value);
         queuePreview();
       });
+      get(id).addEventListener("change", () => run(() => ScanDraft.save(pages)));
     }
-    get("rotate").addEventListener("click", () => {
+    get("review").addEventListener("click", () => run(reviewPage));
+    get("duplicate").addEventListener("click", () => run(async () => {
+      const next = pages.slice();
+      const index = selected + 1;
+      next.splice(index, 0, { ...pages[selected] });
+      await replacePages(next);
+      selected = index;
+      refresh();
+      status("Página duplicada.");
+    }));
+    get("apply-all").addEventListener("click", () => run(async () => {
+      const { mode } = pages[selected];
+      await replacePages(pages.map((page) => ({ ...page, mode })));
+      refresh();
+      status("Filtro aplicado a todas las páginas.");
+    }));
+    get("rotate").addEventListener("click", () => run(async () => {
       const page = pages[selected];
       page.rotation = (page.rotation + 1) % 4;
+      await ScanDraft.save(pages);
       queuePreview();
-    });
-    get("earlier").addEventListener("click", () => swap(-1));
-    get("later").addEventListener("click", () => swap(1));
+    }));
+    get("earlier").addEventListener("click", () => run(() => movePage(selected, selected - 1)));
+    get("later").addEventListener("click", () => run(() => movePage(selected, selected + 1)));
     get("remove").addEventListener("click", () => run(async () => {
-      pages.splice(selected, 1);
+      const next = pages.slice();
+      const [removed] = next.splice(selected, 1);
+      await replacePages(next, null, [removed.sourceId]);
       await select(Math.min(selected, pages.length - 1));
       if (!pages.length) status("Encuadra la hoja completa para detectar sus bordes.");
     }));
@@ -580,12 +703,12 @@ const Scan = (() => {
         confirmText: "Vaciar", danger: true,
       });
       if (!confirmed) return;
-      pages.length = 0;
+      await replacePages([], null, pages.map((page) => page.sourceId));
       await select(-1);
       status("Encuadra la hoja completa para detectar sus bordes.");
     }));
     get("open-pdf").addEventListener("click", () => run(createPdf, "No se pudo crear el PDF. Tus páginas siguen aquí."));
   }
 
-  return { init, hasWork: () => busy || pages.length > 0 || ScanCamera.isOpen() || compareDialog.open };
+  return { init, restore, hasWork: () => busy || !!crop || ScanCamera.isOpen() || compareDialog.open };
 })();

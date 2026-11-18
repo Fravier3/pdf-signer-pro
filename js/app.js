@@ -28,6 +28,7 @@
       el.scrollTop = 0;
     });
 
+    if (name === "scan") void Scan.restore();
     updateNav(name);
     UI.syncSliders(!changed);
     if (changed) UI.enterView(next);

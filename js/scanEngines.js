@@ -1,6 +1,7 @@
 /** Dispatches PDF Pro and Nitidoc independently. Nitidoc uses its upstream worker protocol. */
 const ScanEngines = (() => {
-  const names = { pdfpro: "PDF Pro", nitidoc: "Nitidoc", compare: "Comparar los 3" };
+  const names = { pdfpro: "PDF Pro", nitidoc: "Nitidoc", scanic: "Scanic", quadscan: "Quadscan", compare: "Comparar motores" };
+  const independent = (engine) => engine === "scanic" || engine === "quadscan";
   const openCvUrl = "https://cdn.jsdelivr.net/npm/@techstark/opencv-js@4.10.0-release.1/dist/opencv.js";
   const openCvIntegrity = "sha256-GbRhZ7We+++cw4NiZLC2VxEIM+Sx34QoIAS4sxQcBI0=";
   const presets = { auto: "enhanced", color: "original", vivid: "enhanced", gray: "grayscale", bw: "bw", magic: "bw-high-contrast" };
@@ -36,7 +37,8 @@ const ScanEngines = (() => {
   }
 
   function prepare(engine) {
-    if (engine !== "nitidoc" && engine !== "compare") return Promise.resolve();
+    if (independent(engine)) return ScanRasters.run(engine, "prepare");
+    if (engine !== "nitidoc") return Promise.resolve();
     if (ready) return ready;
     worker = new Worker(new URL("vendor/nitidoc/engine.js", document.baseURI));
     const active = worker;
@@ -112,6 +114,16 @@ const ScanEngines = (() => {
 
   async function detect(engine, canvas) {
     if (engine === "pdfpro") return { corners: ScanImage.detect(canvas), quality: measure(pixels(canvas)) };
+    if (independent(engine)) {
+      const image = pixels(canvas);
+      const quality = measure(image);
+      const found = await ScanRasters.run(engine, "detect", { image });
+      const corners = found?.map(({ x, y }) => [
+        ScanImage.clamp(x / (canvas.width - 1), 0, 1),
+        ScanImage.clamp(y / (canvas.height - 1), 0, 1),
+      ]);
+      return { corners: corners && ScanImage.isQuad(corners) ? corners : null, quality };
+    }
     await prepare(engine);
     const image = pixels(canvas);
     const response = await request("DETECT_IMAGEDATA", { image, withQuality: true }, [image.data.buffer]);
@@ -126,12 +138,17 @@ const ScanEngines = (() => {
     if (engine === "pdfpro") return ScanImage.rectify(source, corners, limit);
     const full = ScanImage.fullFrame();
     if (corners.every(([x, y], i) => x === full[i][0] && y === full[i][1])) return source;
+    const points = corners.map(([x, y]) => ({ x: x * (source.width - 1), y: y * (source.height - 1) }));
+    if (independent(engine)) {
+      const image = await ScanRasters.run(engine, "warp", { image: pixels(source), corners: points, limit });
+      return canvasFrom({ image });
+    }
     await prepare(engine);
     const image = pixels(source);
     const response = await request("WARP", {
       image,
       geometry: { mode: "measured" },
-      corners: corners.map(([x, y]) => ({ x: x * (source.width - 1), y: y * (source.height - 1) })),
+      corners: points,
     }, [image.data.buffer]);
     return canvasFrom(response);
   }
@@ -153,9 +170,24 @@ const ScanEngines = (() => {
   }
 
   async function render(flat, out, page) {
+    const strength = { auto: .68, white: 1, vivid: .48, gray: .70, bw: .78, magic: .82 }[page.mode];
+    let normalized;
+    try {
+      if (strength) {
+        const image = await ScanRasters.run("scancat", "whiten", { image: pixels(flat), strength });
+        normalized = canvasFrom({ image });
+      }
+      const sharedMode = page.mode === "white" || (page.mode === "auto" && page.engine !== "nitidoc") ? "color" : page.mode;
+      await renderFiltered(normalized || flat, out, { ...page, mode: sharedMode });
+    } finally {
+      if (normalized) normalized.width = normalized.height = 1;
+    }
+  }
+
+  async function renderFiltered(flat, out, page) {
     const { engine, mode, brightness, contrast, sharpness, saturation, rotation, skew } = page;
     const extraColor = mode === "vivid" ? 18 : 0;
-    if (engine === "pdfpro") {
+    if (engine !== "nitidoc") {
       ScanImage.enhance(flat, out, { ...page, mode: mode === "magic" || mode === "vivid" ? "auto" : mode });
       colorAdjust(out, saturation + extraColor + (mode === "magic" ? 10 : 0), sharpness + (mode === "magic" ? 18 : 0));
       return;

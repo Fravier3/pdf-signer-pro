@@ -3,7 +3,7 @@
  * una vez instalada. Estrategia: "cache first, network fallback" para
  * el shell de la app, y "network first" para navegación de documento.
  */
-const CACHE_NAME = "pdf-signer-pro-v10";
+const CACHE_NAME = "pdf-signer-pro-v11";
 
 const ENGINE_CACHE = "pdf-pro-opencv-4.10.0-release.1";
 const ENGINE_URL = "https://cdn.jsdelivr.net/npm/@techstark/opencv-js@4.10.0-release.1/dist/opencv.js";
@@ -27,7 +27,8 @@ const APP_SHELL = [
   "./js/app.js",
   "./js/scan.js",
   "./js/scanEngines.js",
-  "./vendor/nitidoc/engine.js",
+  "./js/scanDraft.js",
+  "./js/scanRasters.js",
   "./js/scanCamera.js",
   "./js/scanImage.js",
   "./js/lib/pdf.min.js",
@@ -77,7 +78,10 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
-  if (event.request.url === ENGINE_URL) {
+  const url = event.request.url;
+  if (url === ENGINE_URL ||
+      url.startsWith("https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/") ||
+      url === "https://cdn.jsdelivr.net/npm/quadscan@1.0.0/models/lcnet100_h_e_bifpn_256_fp32.onnx") {
     event.respondWith((async () => {
       const cache = await caches.open(ENGINE_CACHE);
       const cached = await cache.match(event.request);
@@ -96,10 +100,10 @@ self.addEventListener("fetch", (event) => {
     caches.match(event.request).then((cached) => {
       if (cached) return cached;
       return fetch(event.request)
-        .then((response) => {
+        .then(async (response) => {
           if (response && response.status === 200 && response.type === "basic") {
             const clone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+            try { await (await caches.open(CACHE_NAME)).put(event.request, clone); } catch { /* storage unavailable */ }
           }
           return response;
         })
