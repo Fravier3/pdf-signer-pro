@@ -5,7 +5,7 @@ const ScanImage = (() => {
   const mix = (a, b, fraction) => a + (b - a) * fraction;
   const distance = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
   const cross = (a, b, c) => (b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0]);
-  const isQuad = (points) => points.every((point, i) =>
+  const isQuad = (points) => points?.length === 4 && points.every((point, i) =>
     cross(point, points[(i + 1) % 4], points[(i + 2) % 4]) > 0.002
   );
 
@@ -49,6 +49,7 @@ const ScanImage = (() => {
     const context = reduced.getContext("2d", { willReadFrequently: true });
     context.drawImage(source, 0, 0, width, height);
     const rgba = context.getImageData(0, 0, width, height).data;
+    reduced.width = reduced.height = 1;
     const luma = new Uint8Array(width * height);
     const paper = new Uint8Array(width * height);
     for (let i = 0; i < luma.length; i++) {
@@ -270,40 +271,126 @@ const ScanImage = (() => {
     const area = (cross(points[0], points[1], points[2]) + cross(points[0], points[2], points[3])) / 2;
     if (area < 0.18 || area > 0.99) return null;
 
-    const result = points.map((point) => point.map((coord) => clamp(coord, 0, 1)));
-    // Esquina doblada: el contorno real queda lejos de la esquina que forman los lados rectos.
-    result.folded = corners.some(([x, y], i) =>
-      x > width * 0.01 && x < width * 0.99 && y > height * 0.01 && y < height * 0.99 &&
-      distance([x, y], rough[i]) > diagonal * 0.035);
-    return result;
+    return points.map((point) => point.map((coord) => clamp(coord, 0, 1)));
   }
 
-  // Mete las esquinas una fracción mínima hacia dentro para que no entren rendijas del fondo al enderezar.
-  function inset(points) {
-    if (!points) return null;
-    const cx = points.reduce((sum, [x]) => sum + x, 0) / 4;
-    const cy = points.reduce((sum, [, y]) => sum + y, 0) / 4;
-    const result = points.map(([x, y]) => [x + (cx - x) * 0.006, y + (cy - y) * 0.006]);
-    result.folded = points.folded;
-    return result;
-  }
-
-  function detect(source) {
-    const small = reduce(source, 320);
-    if (!small) return null;
-    const { luma, paper, width, height } = small;
-    const lines = findLines(luma, width, height, STRICT);
-    const sheet = findSheet(small);
-    if (lines) {
-      // Si ambos métodos coinciden, se conservan las rectas y se toma de la hoja el aviso de esquina doblada.
-      if (sheet?.folded && sheet.every(([x, y], i) => Math.hypot((x - lines[i][0]) * width, (y - lines[i][1]) * height)
-        < Math.hypot(width, height) * 0.05)) lines.folded = true;
-      return inset(lines);
+  // Comprueba que haya papel más claro dentro del recorte y fondo fuera de cada lado.
+  // Se buscan transiciones locales para corregir pequeños errores de los detectores.
+  function measureSide(a, b, { paper, width, height }, radius) {
+    const x = a[0] * width, y = a[1] * height;
+    const dx = b[0] * width - x, dy = b[1] * height - y;
+    const length = Math.hypot(dx, dy);
+    const nx = -dy / length, ny = dx / length;
+    const hits = [];
+    for (let sample = 1; sample <= 15; sample++) {
+      const t = sample / 16;
+      const sx = x + dx * t, sy = y + dy * t;
+      function at(offset) {
+        const px = Math.floor(sx + nx * offset), py = Math.floor(sy + ny * offset);
+        return px >= 0 && px < width && py >= 0 && py < height ? paper[py * width + px] : NaN;
+      }
+      let best = 0, hit;
+      for (let offset = -radius; offset <= radius; offset++) {
+        const inside = (at(offset + 2) + at(offset + 4)) / 2;
+        const outside = (at(offset - 2) + at(offset - 4)) / 2;
+        const contrast = inside - outside;
+        const score = contrast - Math.abs(offset) * 0.9;
+        if (inside < 76 || contrast < 13 || !(score > best)) continue;
+        best = score;
+        hit = { t, offset, contrast, point: [sx + nx * offset, sy + ny * offset] };
+      }
+      if (hit) hits.push(hit);
     }
-    return inset(sheet || findLines(paper, width, height, LOOSE));
+    return { hits, nx, ny };
   }
 
-  function rectify(source, points, limit) {
+  function verifyCrop(points, plane) {
+    if (!isQuad(points)) return null;
+    const { width, height } = plane;
+    const radius = Math.max(4, Math.round(Math.min(width, height) * 0.055));
+    const sides = points.map((a, i) => measureSide(a, points[(i + 1) % 4], plane, radius));
+    if (sides.some(({ hits }) => hits.length < 12 || hits[0].t > 3 / 16 || hits.at(-1).t < 13 / 16)) return null;
+    const lines = sides.map(({ hits, nx, ny }) => {
+      const line = fitLine(hits.map(({ point }) => point));
+      const direction = Math.sign(line.nx * nx + line.ny * ny);
+      const residual = ({ point: [x, y] }) => direction * (line.nx * x + line.ny * y - line.r);
+      const endpoint = (first, second, t) => {
+        const step = (residual(second) - residual(first)) * (t - first.t) / (second.t - first.t);
+        return residual(first) + clamp(step, -3, 3);
+      };
+      const ends = Math.max(0, endpoint(hits[0], hits[1], 0), endpoint(hits.at(-1), hits.at(-2), 1));
+      // Acerca las esquinas al papel cuando una curva se separa de la recta.
+      return { ...line, r: line.r + direction * (2.2 + ends) };
+    });
+    const corners = lines.map((b, i) => {
+      const a = lines[(i + 3) % 4];
+      const d = a.nx * b.ny - a.ny * b.nx;
+      return [(a.r * b.ny - a.ny * b.r) / d / width, (a.nx * b.r - a.r * b.nx) / d / height];
+    });
+    if (corners.some((point) => point.some((v) => !Number.isFinite(v) || v < 0.006 || v > 0.994))) return null;
+    if (!isQuad(corners)) return null;
+    if (corners.some(([x, y], i) => Math.hypot((x - points[i][0]) * width, (y - points[i][1]) * height) > radius * 2.2)) return null;
+
+    let score = 0;
+    const curves = [];
+    for (let i = 0; i < 4; i++) {
+      const { hits, nx, ny } = measureSide(corners[i], corners[(i + 1) % 4], plane, radius);
+      if (hits.length < 12 || hits[0].t > 3 / 16 || hits.at(-1).t < 13 / 16) return null;
+      const offsets = [[0, 0, 0]];
+      for (let j = 0; j < hits.length; j++) {
+        const hit = hits[j];
+        const before = hits[j - 1], after = hits[j + 1];
+        if (before && hit.t - before.t > 3 / 16) return null;
+        const neighbors = [before, hit, after].filter(Boolean).map(({ offset }) => offset).sort((a, b) => a - b);
+        const offset = neighbors.length === 3 ? neighbors[1] : hit.offset;
+        // Una transición aislada puede ser texto o una sombra dentro de la hoja.
+        if (Math.abs(offset - hit.offset) > 3) return null;
+        const inward = offset + 2.5;
+        if ((!before || !after) && Math.abs(inward) > 4) return null;
+        offsets.push([hit.t, inward * nx / width, inward * ny / height]);
+        score += Math.min(hit.contrast, 75);
+      }
+      offsets.push([1, 0, 0]);
+      curves.push(offsets);
+    }
+    const area = (cross(corners[0], corners[1], corners[2]) + cross(corners[0], corners[2], corners[3])) / 2;
+    return { corners, curves, score: score * Math.sqrt(area) };
+  }
+
+  function detection(source, proposed) {
+    const small = reduce(source, 420);
+    if (!small) return { corners: null, curves: null, verified: false };
+    const { luma, paper, width, height } = small;
+    const sheet = proposed === undefined ? findSheet(small) : null;
+    const lines = proposed === undefined ? findLines(luma, width, height, STRICT) : null;
+    const candidates = proposed === undefined
+      ? [sheet, lines, findLines(paper, width, height, LOOSE)].filter(Boolean)
+      : [proposed].filter(Boolean);
+    const best = candidates.map((points) => verifyCrop(points, small)).filter(Boolean)
+      .sort((a, b) => b.score - a.score)[0];
+    if (!best) return { corners: candidates[0] || null, curves: null, verified: false };
+    const { corners, curves } = best;
+    const curved = curves.some((side) => side.some(([, x, y]) => Math.hypot(x * width, y * height) > 1.4));
+    return { corners, curves: curved ? curves : null, verified: true };
+  }
+
+  function trace(side, length, perspective) {
+    // El muestreo de la curva sigue la coordenada de origen de la homografía.
+    const x = new Float32Array(length), y = new Float32Array(length);
+    let index = 0;
+    for (let i = 0; i < length; i++) {
+      const t = perspective(i / (length - 1));
+      while (index + 1 < side.length - 1 && side[index + 1][0] < t) index++;
+      while (index > 0 && side[index][0] > t) index--;
+      const [a, ax, ay] = side[index], [b, bx, by] = side[index + 1];
+      const weight = clamp((t - a) / (b - a), 0, 1);
+      x[i] = mix(ax, bx, weight);
+      y[i] = mix(ay, by, weight);
+    }
+    return { x, y };
+  }
+
+  function rectify(source, points, limit, curves) {
     if (Math.max(source.width, source.height) <= limit &&
       fullFrame().every(([x, y], i) => x === points[i][0] && y === points[i][1])) return source;
 
@@ -324,13 +411,27 @@ const ScanImage = (() => {
     const ax = b[0] - a[0] + g * b[0], bx = d[0] - a[0] + h * d[0];
     const ay = b[1] - a[1] + g * b[1], by = d[1] - a[1] + h * d[1];
 
+    const traces = curves && [
+      trace(curves[0], target.width, (u) => u * (1 + g) / (1 + g * u)),
+      trace(curves[1], target.height, (v) => v * (1 + g + h) / (1 + g + h * v)),
+      trace(curves[2], target.width, (u) => (1 - u) * (1 + h) / (1 + h + g * u)),
+      trace(curves[3], target.height, (v) => (1 - v) / (1 + h * v)),
+    ];
+    const [top, right, bottom, left] = traces || [];
+
     for (let y = 0, i = 0; y < target.height; y++) {
       const v = y / (target.height - 1);
       for (let x = 0; x < target.width; x++, i += 4) {
         const u = x / (target.width - 1);
         const z = 1 + g * u + h * v;
-        const px = clamp((a[0] + ax * u + bx * v) / z, 0, source.width - 1);
-        const py = clamp((a[1] + ay * u + by * v) / z, 0, source.height - 1);
+        let sx = (a[0] + ax * u + bx * v) / z;
+        let sy = (a[1] + ay * u + by * v) / z;
+        if (traces) {
+          sx += (mix(top.x[x], bottom.x[x], v) + mix(left.x[y], right.x[y], u)) * (source.width - 1);
+          sy += (mix(top.y[x], bottom.y[x], v) + mix(left.y[y], right.y[y], u)) * (source.height - 1);
+        }
+        const px = clamp(sx, 0, source.width - 1);
+        const py = clamp(sy, 0, source.height - 1);
         const ix = Math.min(source.width - 2, Math.floor(px)), fx = px - ix;
         const iy = Math.min(source.height - 2, Math.floor(py)), fy = py - iy;
         const first = (iy * source.width + ix) * 4, second = first + source.width * 4;
@@ -624,5 +725,5 @@ const ScanImage = (() => {
     context.putImageData(pixels, 0, 0);
   }
 
-  return { canvas, clamp, detect, enhance, fullFrame, imageSize, isQuad, orientation, read, rectify };
+  return { canvas, clamp, detection, enhance, fullFrame, imageSize, isQuad, orientation, read, rectify };
 })();

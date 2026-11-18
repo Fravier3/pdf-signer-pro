@@ -113,7 +113,7 @@ const ScanEngines = (() => {
   }
 
   async function detect(engine, canvas) {
-    if (engine === "pdfpro") return { corners: ScanImage.detect(canvas), quality: measure(pixels(canvas)) };
+    if (engine === "pdfpro") return { ...ScanImage.detection(canvas), quality: measure(pixels(canvas)) };
     if (independent(engine)) {
       const image = pixels(canvas);
       const quality = measure(image);
@@ -122,7 +122,7 @@ const ScanEngines = (() => {
         ScanImage.clamp(x / (canvas.width - 1), 0, 1),
         ScanImage.clamp(y / (canvas.height - 1), 0, 1),
       ]);
-      return { corners: corners && ScanImage.isQuad(corners) ? corners : null, quality };
+      return { ...ScanImage.detection(canvas, corners || null), quality };
     }
     await prepare(engine);
     const image = pixels(canvas);
@@ -131,11 +131,11 @@ const ScanEngines = (() => {
       ScanImage.clamp(x / (canvas.width - 1), 0, 1),
       ScanImage.clamp(y / (canvas.height - 1), 0, 1),
     ]);
-    return { corners: corners && ScanImage.isQuad(corners) ? corners : null, quality: response.quality };
+    return { ...ScanImage.detection(canvas, corners || null), quality: response.quality };
   }
 
-  async function rectify(engine, source, corners, limit) {
-    if (engine === "pdfpro") return ScanImage.rectify(source, corners, limit);
+  async function rectify(engine, source, corners, limit, curves) {
+    if (engine === "pdfpro" || curves) return ScanImage.rectify(source, corners, limit, curves);
     const full = ScanImage.fullFrame();
     if (corners.every(([x, y], i) => x === full[i][0] && y === full[i][1])) return source;
     const points = corners.map(([x, y]) => ({ x: x * (source.width - 1), y: y * (source.height - 1) }));

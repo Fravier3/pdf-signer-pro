@@ -10,6 +10,7 @@ const Scan = (() => {
   };
   const motors = ["pdfpro", "nitidoc", "scanic", "quadscan"];
   const DEFAULT_STATUS = "Encuadra la hoja completa para detectar sus bordes.";
+  const CHECK_CROP = "Revisa el recorte. Ajusta las esquinas para dejar solo el papel o vuelve a tomar la foto.";
   const FAVORITE_KEY = "pdfpro-scan-favorite";
   const engineButtons = [...get("engine-grid").querySelectorAll("[data-engine]"), get("compare-mode")];
   const compareDialog = get("compare");
@@ -23,7 +24,7 @@ const Scan = (() => {
   let previewVersion = 0;
   let previewRunning = false;
   let selected = -1;
-  let source, flat, crop, busy = false;
+  let source, flat, crop, cropCurves, busy = false;
   let previewFrame = 0;
   let openPdf, onIdle, entered = false, drag;
   const controls = ["camera", "import", "crop", "reset-crop", "apply-crop", "filter", "brightness",
@@ -77,9 +78,10 @@ const Scan = (() => {
     loupe.hidden = false;
   }
 
-  function setCrop(points) {
+  function setCrop(points, curves = null) {
     hideLoupe();
     crop = points;
+    cropCurves = curves;
     get("crop-stage").hidden = !crop;
     get("crop-actions").hidden = !crop;
     get("preview").hidden = !!crop;
@@ -91,7 +93,11 @@ const Scan = (() => {
 
   function drawHandles() {
     const percent = crop.map(([x, y]) => [x * 100, y * 100]);
-    get("crop-outline").querySelector("polygon").setAttribute("points", percent.map((point) => point.join(",")).join(" "));
+    const outline = cropCurves ? cropCurves.flatMap((side, i) => {
+      const [x, y] = crop[i], [right, bottom] = crop[(i + 1) % 4];
+      return side.slice(0, -1).map(([t, dx, dy]) => [(x + (right - x) * t + dx) * 100, (y + (bottom - y) * t + dy) * 100]);
+    }) : percent;
+    get("crop-outline").querySelector("polygon").setAttribute("points", outline.map((point) => point.join(",")).join(" "));
     get("crop-stage").querySelectorAll(".scan-handle").forEach((handle, i) => {
       handle.style.left = percent[i][0] + "%";
       handle.style.top = percent[i][1] + "%";
@@ -204,7 +210,7 @@ const Scan = (() => {
     const next = page ? await ScanImage.read(await fileFor(page), PREVIEW_EDGE) : null;
     let corrected;
     try {
-      corrected = next ? await ScanEngines.rectify(page.engine, next, page.corners, PREVIEW_EDGE) : null;
+      corrected = !next || page.needsCropReview ? next : await ScanEngines.rectify(page.engine, next, page.corners, PREVIEW_EDGE, page.curves);
     } catch (error) {
       if (next) next.width = next.height = 1;
       throw error;
@@ -217,7 +223,12 @@ const Scan = (() => {
     flat = corrected;
     setCrop(null);
     refresh();
-    if (page && !page.detected) status("Revisa los bordes. Puedes ajustar las cuatro esquinas a mano.");
+    if (page?.needsCropReview) {
+      editCrop();
+      status(CHECK_CROP);
+    } else if (page && !page.detected) {
+      status("Revisa los bordes. Puedes ajustar las cuatro esquinas a mano.");
+    }
   }
 
   async function run(action, failure = "Ocurrió un problema. Intenta de nuevo.") {
@@ -270,20 +281,20 @@ const Scan = (() => {
     const probe = await ScanImage.read(file, 720);
     let image, corrected;
     try {
-      const { corners: detected, quality } = await ScanEngines.detect(motor, probe);
+      const { corners: detected, curves, verified, quality } = await ScanEngines.detect(motor, probe);
       const corners = detected || ScanImage.fullFrame();
-      image = await ScanImage.read(file, 2240);
-      corrected = await ScanEngines.rectify(motor, image, corners, 2240);
-      const turn = ScanImage.orientation(corrected);
+      image = await ScanImage.read(file, verified ? 2240 : 140);
+      corrected = verified ? await ScanEngines.rectify(motor, image, corners, 2240, curves) : image;
+      const turn = verified ? ScanImage.orientation(corrected) : { rotation: 0, skew: 0 };
       const page = {
-        file, engine: motor, corners, detected: Boolean(detected), quality,
+        file, engine: motor, corners, curves, detected: verified, needsCropReview: !verified, quality,
         mode: "auto", brightness: 0, contrast: 0, saturation: 0, sharpness: 0,
         rotation: turn.rotation, skew: turn.skew,
       };
       const thumb = ScanImage.canvas(1, 1);
       const reduced = ScanImage.canvas(...ScanImage.imageSize(corrected.width, corrected.height, 96));
       reduced.getContext("2d").drawImage(corrected, 0, 0, reduced.width, reduced.height);
-      await ScanEngines.render(reduced, thumb, page);
+      await ScanEngines.render(reduced, thumb, verified ? page : { ...page, mode: "color" });
       page.thumbnail = thumb.toDataURL("image/jpeg", .83);
       thumb.width = thumb.height = reduced.width = reduced.height = 1;
       return page;
@@ -311,7 +322,7 @@ const Scan = (() => {
       await select(last);
       get("page-list").children[last]?.scrollIntoView({ block: "nearest", inline: "nearest" });
       const { detected, quality } = pages[last];
-      const message = detected ? "Página enderezada." : "Revisa las cuatro esquinas.";
+      const message = detected ? "Página enderezada." : CHECK_CROP;
       status([message, quality?.isDark && "Poca luz.", quality?.isBlurry && "La foto podría estar borrosa."].filter(Boolean).join(" "));
     }
     if (failed) {
@@ -328,7 +339,7 @@ const Scan = (() => {
     const output = ScanImage.canvas(1, 1);
     let corrected;
     try {
-      corrected = await ScanEngines.rectify(page.engine, image, page.corners, quality.edge);
+      corrected = await ScanEngines.rectify(page.engine, image, page.corners, quality.edge, page.curves);
       if (corrected !== image) image.width = image.height = 1;
       await ScanEngines.render(corrected, output, page);
       const { width, height } = output;
@@ -351,7 +362,7 @@ const Scan = (() => {
     get("zoom-viewport").scrollTo(0, 0);
   }
 
-  function showResult(label, result, use) {
+  function showResult(label, result, use, action = "Usar " + label) {
     const card = document.createElement("article");
     card.className = "scan-result";
     const heading = document.createElement("strong");
@@ -382,7 +393,7 @@ const Scan = (() => {
       const button = document.createElement("button");
       button.type = "button";
       button.className = "btn primary";
-      button.textContent = "Usar " + label;
+      button.textContent = action;
       button.addEventListener("click", use);
       button.disabled = true;
       card.append(button);
@@ -412,25 +423,31 @@ const Scan = (() => {
       if (!compareDialog.open) return;
       const label = ScanEngines.names[motor];
       live.textContent = "Procesando con " + label + "…";
+      let ready = false;
       try {
         await ScanEngines.prepare(motor);
+        ready = true;
         const start = performance.now();
         const page = await analyze(file, motor);
-        const result = await renderPage(page);
+        const result = page.needsCropReview
+          ? { message: "Bordes sin confirmar. Ajusta el recorte para dejar solo el papel." }
+          : { ...await renderPage(page), elapsed: performance.now() - start };
         if (!compareDialog.open) return;
-        showResult(label, { ...result, elapsed: performance.now() - start }, () => run(async () => {
+        showResult(label, result, () => run(async () => {
           await selectForComparison(page, replacement);
           compareDialog.close();
-          status(label + " añadido al PDF.");
-        }));
+          if (!page.needsCropReview) status(label + " añadido al PDF.");
+        }), page.needsCropReview ? "Ajustar bordes" : undefined);
       } catch (error) {
         if (!compareDialog.open) return;
         console.warn(error);
-        showResult(label, { message: "No se pudo procesar esta foto." });
+        showResult(label, { message: ready
+          ? "El motor no pudo procesar esta foto."
+          : "No se pudo cargar el motor. Comprueba la conexión inicial." });
       }
     }
     get("compare-results").querySelectorAll(".btn.primary").forEach((button) => { button.disabled = false; });
-    live.textContent = "Amplía las imágenes y elige el resultado para tu PDF.";
+    live.textContent = "Elige un recorte o ajusta los bordes.";
   }
 
   async function selectForComparison(page, replacement) {
@@ -465,7 +482,7 @@ const Scan = (() => {
     original.width = source.width;
     original.height = source.height;
     original.getContext("2d").drawImage(source, 0, 0);
-    setCrop(pages[selected].corners);
+    setCrop(pages[selected].corners, pages[selected].curves);
   }
 
   function moveHandle(index, x, y) {
@@ -473,6 +490,7 @@ const Scan = (() => {
     next[index] = [ScanImage.clamp(x, 0, 1), ScanImage.clamp(y, 0, 1)];
     if (!ScanImage.isQuad(next)) return;
     crop = next;
+    cropCurves = null;
     drawHandles();
   }
 
@@ -520,6 +538,12 @@ const Scan = (() => {
   }
 
   async function createPdf() {
+    const unreviewed = pages.findIndex((page) => page.needsCropReview);
+    if (unreviewed >= 0) {
+      await select(unreviewed);
+      get("crop-stage").scrollIntoView({ block: "nearest" });
+      return;
+    }
     const pdf = await PDFLib.PDFDocument.create();
     const sizes = { letter: [612, 792], a4: [595.28, 841.89], legal: [612, 1008] };
     const paper = sizes[get("format").value];
@@ -621,19 +645,27 @@ const Scan = (() => {
     });
     get("crop").addEventListener("click", editCrop);
     get("reset-crop").addEventListener("click", () => run(async () => {
-      const { corners } = await ScanEngines.detect(pages[selected].engine, source);
-      setCrop(corners || ScanImage.fullFrame());
+      const { corners, curves } = await ScanEngines.detect(pages[selected].engine, source);
+      setCrop(corners || ScanImage.fullFrame(), curves);
     }));
     get("apply-crop").addEventListener("click", () => run(async () => {
       const page = pages[selected];
-      const corrected = await ScanEngines.rectify(page.engine, source, crop, PREVIEW_EDGE);
+      const corrected = await ScanEngines.rectify(page.engine, source, crop, PREVIEW_EDGE, cropCurves);
+      const turn = ScanImage.orientation(corrected);
+      const rotation = page.needsCropReview ? turn.rotation : page.rotation;
+      const updated = { ...page, corners: crop, curves: cropCurves, detected: true, needsCropReview: false,
+        rotation, skew: turn.rotation === rotation ? turn.skew : 0 };
+      const next = pages.slice();
+      next[selected] = updated;
+      try {
+        await ScanDraft.save(next);
+      } catch (error) {
+        if (corrected !== source) corrected.width = corrected.height = 1;
+        throw error;
+      }
       if (flat !== source) flat.width = flat.height = 1;
       flat = corrected;
-      page.corners = crop;
-      page.detected = true;
-      const turn = ScanImage.orientation(flat);
-      page.skew = turn.rotation === page.rotation ? turn.skew : 0;
-      await ScanDraft.save(pages);
+      pages[selected] = updated;
       setCrop(null);
       queuePreview();
       status("Recorte aplicado.");

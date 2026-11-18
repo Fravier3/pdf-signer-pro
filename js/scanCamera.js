@@ -75,7 +75,8 @@ const ScanCamera = (() => {
       }
       probeContext.drawImage(video, 0, 0, width, height);
       try {
-        const { corners: found, quality } = await ScanEngines.detect(previewMotor, probe);
+        const { corners: candidate, verified, quality } = await ScanEngines.detect(previewMotor, probe);
+        const found = verified ? candidate : null;
         if (opening !== session || shot.disabled) return;
         const stable = found && previous && found.every(([x, y], i) =>
           Math.hypot(x - previous[i][0], y - previous[i][1]) < 0.018);
