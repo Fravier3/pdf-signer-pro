@@ -18,12 +18,6 @@ function loadLibrary() {
   return tesseract;
 }
 
-async function loadLanguage(code) {
-  const response = await fetch(CDN + "@tesseract.js-data/" + code + "@1.0.0/4.0.0_best_int/" + code + ".traineddata.gz");
-  if (!response.ok) throw new Error("No se pudo descargar el idioma de OCR.");
-  return { code, data: new Uint8Array(await response.arrayBuffer()) };
-}
-
 function regions(blocks) {
   const lines = [];
   const words = [];
@@ -41,7 +35,7 @@ function regions(blocks) {
 }
 
 export async function recognizePage(page, onProgress) {
-  const [library, spa, eng] = await Promise.all([loadLibrary(), loadLanguage("spa"), loadLanguage("eng")]);
+  const library = await loadLibrary();
   const normal = page.getViewport({ scale: 1 });
   const scale = Math.min(3, 3000 / Math.max(normal.width, normal.height));
   const viewport = page.getViewport({ scale });
@@ -49,21 +43,36 @@ export async function recognizePage(page, onProgress) {
   canvas.width = Math.ceil(viewport.width);
   canvas.height = Math.ceil(viewport.height);
   let worker;
+  let timer;
   try {
-    await page.render({ canvasContext: canvas.getContext("2d"), viewport, annotationMode: pdfjsLib.AnnotationMode.DISABLE }).promise;
+    await page.render({ canvasContext: canvas.getContext("2d"), viewport, annotationMode: pdfjsLib.AnnotationMode?.DISABLE }).promise;
     const blob = await new Promise((resolve) => canvas.toBlob(resolve));
     if (!blob) throw new Error("No se pudo preparar la imagen para OCR.");
     canvas.width = canvas.height = 0;
-    worker = await library.createWorker([spa, eng], 1, {
-      workerPath: new URL("./pdfOcrWorker.js", import.meta.url).href,
-      workerBlobURL: false,
-      corePath: CDN + "tesseract.js-core@6.0.0",
-      cachePath: "pdf-pro-edit-ocr-1",
-      logger: (message) => onProgress(message.status === "recognizing text" ? message.progress : null),
+    const { data } = await new Promise((resolve, reject) => {
+      timer = setTimeout(() => reject(new Error("OCR tardó demasiado. Intenta de nuevo.")), 90000);
+      const recognize = async () => {
+        const active = await library.createWorker("spa+eng", 1, {
+          workerPath: new URL("./pdfOcrWorker.js", import.meta.url).href,
+          workerBlobURL: false,
+          corePath: CDN + "tesseract.js-core@6.1.2",
+          cachePath: "pdf-pro-edit-ocr-1",
+          logger: (message) => onProgress(message.status === "recognizing text" ? message.progress : null),
+          errorHandler: (error) => reject(new Error(String(error))),
+        });
+        if (!timer) {
+          await active.terminate();
+          return;
+        }
+        worker = active;
+        return active.recognize(blob, {}, { blocks: true });
+      };
+      recognize().then(resolve, reject);
     });
-    const { data } = await worker.recognize(blob, {}, { blocks: true });
     return { viewport, regions: regions(data.blocks) };
   } finally {
+    clearTimeout(timer);
+    timer = null;
     canvas.width = canvas.height = 0;
     await worker?.terminate();
   }

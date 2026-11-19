@@ -9,9 +9,9 @@ const EDIT_ENGINE_CACHE = "pdf-pro-edit-engine-1";
 const EDIT_ENGINE_ASSETS = [
   "https://cdn.jsdelivr.net/npm/@embedpdf/pdfium@2.15.1/dist/",
   "https://cdn.jsdelivr.net/npm/tesseract.js@6.0.1/dist/",
-  "https://cdn.jsdelivr.net/npm/tesseract.js-core@6.0.0/",
-  "https://cdn.jsdelivr.net/npm/@tesseract.js-data/spa@1.0.0/",
-  "https://cdn.jsdelivr.net/npm/@tesseract.js-data/eng@1.0.0/",
+  "https://cdn.jsdelivr.net/npm/tesseract.js-core@6.1.2/",
+  "https://cdn.jsdelivr.net/npm/@tesseract.js-data/spa/4.0.0_best_int/",
+  "https://cdn.jsdelivr.net/npm/@tesseract.js-data/eng/4.0.0_best_int/",
 ];
 
 const ENGINE_CACHE = "pdf-pro-opencv-4.10.0-release.1";
@@ -102,7 +102,7 @@ self.addEventListener("fetch", (event) => {
       const cached = await cache.match(event.request);
       if (cached) return cached;
       const response = await fetch(event.request);
-      if (response.ok && (response.type === "cors" || (editAsset && response.type === "opaque"))) {
+      if ((response.ok && response.type === "cors") || (editAsset && response.type === "opaque")) {
         try { await cache.put(event.request, response.clone()); } catch { /* storage unavailable */ }
       }
       return response;

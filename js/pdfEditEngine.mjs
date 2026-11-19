@@ -12,7 +12,10 @@ async function getEngine() {
       const api = await init({ wasmBinary: await response.arrayBuffer() });
       api.PDFiumExt_Init();
       return api;
-    })().catch((err) => { engine = null; throw err; });
+    })().catch((err) => {
+      engine = null;
+      throw new Error("No se pudo iniciar el motor de edición. Intenta de nuevo con conexión a internet.", { cause: err });
+    });
   }
   return engine;
 }

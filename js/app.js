@@ -216,15 +216,9 @@
     }
     const chosen = await SignaturePickerSheet.open(list);
     if (!chosen) return;
-    const currentPage = getCurrentVisiblePage();
+    const currentPage = PdfViewer.getVisiblePage();
     PlacementManager.insertSignature(currentPage, chosen);
     Toast.show("Firma insertada — arrástrala para colocarla");
-  }
-
-  function getCurrentVisiblePage() {
-    const text = document.getElementById("viewer-page-indicator").textContent || "1 / 1";
-    const n = parseInt(text.split("/")[0].trim(), 10);
-    return Number.isFinite(n) ? n : 1;
   }
 
   // -------------------- NUEVA FIRMA: TABS --------------------

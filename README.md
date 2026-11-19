@@ -1,9 +1,6 @@
 # PDF Signer Pro
 
-Aplicación web (PWA) para abrir PDFs, insertar firmas (PNG o dibujadas a mano),
-moverlas / escalarlas / rotarlas y exportar un nuevo PDF con las firmas
-incrustadas de forma permanente. **100% local**: ningún archivo ni firma
-sale nunca de tu dispositivo.
+Aplicación web (PWA) para abrir y escanear PDFs, corregir texto, mover objetos e insertar firmas PNG o dibujadas a mano. El archivo exportado es una copia. Los documentos, las fotos y las firmas se procesan en el dispositivo.
 
 ## Ejecutar e instalar
 
@@ -33,6 +30,7 @@ PDFSignerPro/
 │   ├── pdfViewer.js                → visor PDF.js + gestos de zoom/pan
 │   ├── placement.js                 → mover/escalar/rotar/duplicar firmas
 │   ├── exportPdf.js                  → exportar PDF final con pdf-lib
+│   ├── pdfEditor.js / pdfEditEngine.mjs / pdfEditOcr.mjs → edición de objetos PDF y OCR local
 │   ├── scan.js / scanCamera.js / scanImage.js → escáner: cámara, detección de bordes, perspectiva, filtros
 │   └── lib/                           → PDF.js, pdf-lib, Motion y subconjunto de iconos Lucide
 ```
@@ -82,6 +80,15 @@ PDFSignerPro/
   - **Lupa** al arrastrar una esquina para ajustarla con precisión.
 - PWA instalable, con modo claro/oscuro/automático y funcionamiento offline
   una vez cacheada (service worker).
+
+## Editar un PDF
+
+1. Abre un documento, toca «Editar» y entra a «Texto» u «Objetos».
+2. En «Texto», toca una palabra o un bloque resaltado. Escribe la corrección y toca «Aplicar». En una hoja escaneada, pulsa «OCR» y elige si quieres seleccionar palabras o líneas. Si la capa OCR anterior guarda la línea completa, selecciona «Líneas» para sustituirla.
+3. En «Objetos», toca una imagen o gráfico independiente, arrastra el marco para moverlo o usa las flechas del teclado. Usa «−», «+» y «Girar 15°» para ajustar el tamaño y el ángulo. El botón «Deshacer edición PDF» revierte el último cambio.
+4. Usa «Guardar PDF» o «Compartir PDF» para exportar la copia. Abrir un documento nuevo o añadir páginas inicia un nuevo historial de deshacer.
+
+[PDFium de EmbedPDF](https://github.com/embedpdf/embed-pdf-viewer) modifica los objetos PDF nativos. El OCR de español e inglés usa [Tesseract.js](https://github.com/naptha/tesseract.js). La primera vez se requiere conexión para descargar estos recursos. El OCR actúa sobre escaneos que tienen una imagen de página independiente. Los logos que forman parte de esa foto requieren una herramienta de recorte y relleno para moverlos por separado. El editor usa una tipografía estándar similar cuando no puede reutilizar la original.
 
 ## Privacidad
 
