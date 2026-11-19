@@ -15,6 +15,7 @@
   let currentScreen = "home";
 
   function showScreen(name) {
+    if (name !== "viewer") PdfEditor.leave();
     const next = screens[name];
     const changed = name !== currentScreen || !next.classList.contains("active");
     Object.values(screens).forEach((s) => s.classList.remove("active"));
@@ -104,7 +105,7 @@
   let pdfInputAction = "open";
   let pdfInputBusy = false;
   function pickPdf(action) {
-    if (pdfInputBusy) return;
+    if (pdfInputBusy || PdfEditor.isApplying()) return;
     pdfInputAction = action;
     fileInputPdf.click();
   }
@@ -112,6 +113,7 @@
   let viewerReturnScreen = "home";
   async function openDocument(file, returnScreen = "home") {
     await PdfViewer.openFile(file);
+    PdfEditor.reset();
     PlacementManager.reset();
     viewerReturnScreen = returnScreen;
     showScreen("viewer");
@@ -126,7 +128,7 @@
   fileInputPdf.addEventListener("change", async () => {
     const file = fileInputPdf.files[0];
     fileInputPdf.value = "";
-    if (!file || pdfInputBusy) return;
+    if (!file || pdfInputBusy || PdfEditor.isApplying()) return;
     if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
       Toast.show("Selecciona un archivo PDF válido");
       return;
@@ -137,7 +139,10 @@
     try {
       if (appending) {
         const added = await PdfViewer.appendFile(file);
-        if (added) Toast.show(added === 1 ? "Se añadió 1 página al final" : `Se añadieron ${added} páginas al final`);
+        if (added) {
+          PdfEditor.documentAppended();
+          Toast.show(added === 1 ? "Se añadió 1 página al final" : `Se añadieron ${added} páginas al final`);
+        }
       } else {
         await openDocument(file);
       }
@@ -157,6 +162,8 @@
   });
 
   function closeDocumentToHome() {
+    if (PdfEditor.isApplying()) return;
+    PdfEditor.reset();
     PdfViewer.reset();
     PlacementManager.reset();
     // Sin documento ya no tiene sentido "volver al visor" tras guardar una firma.

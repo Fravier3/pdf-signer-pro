@@ -82,7 +82,8 @@ const PdfExporter = (() => {
   function suggestedFileName() {
     const original = PdfViewer.getFileName() || "documento.pdf";
     const base = original.replace(/\.pdf$/i, "");
-    return `${base}-firmado.pdf`;
+    const suffix = PlacementManager.hasAnyPlacement() ? "firmado" : PdfEditor.hasEdits() ? "editado" : "firmado";
+    return `${base}-${suffix}.pdf`;
   }
 
   const sheet = () => document.getElementById("pdf-export-sheet");
@@ -126,7 +127,7 @@ const PdfExporter = (() => {
   }
 
   async function prepareExport(saving) {
-    if (exporting || pendingExport) return;
+    if (exporting || pendingExport || PdfEditor.isApplying()) return;
     exporting = true;
     const filename = suggestedFileName();
     let handle;

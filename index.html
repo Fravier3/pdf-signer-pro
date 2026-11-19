@@ -276,10 +276,39 @@
       <span class="viewer-file"><i data-icon="file-text"></i><span id="viewer-filename">Documento.pdf</span></span>
       <span id="viewer-page-indicator" class="page-indicator num" aria-label="Página actual">1 / 1</span>
     </div>
+    <button type="button" class="btn secondary pdf-edit-toggle" id="pdf-edit-toggle" aria-expanded="false" aria-controls="pdf-edit-panel">
+      <i data-icon="pencil"></i><span>Editar</span>
+    </button>
     <button class="icon-btn" id="btn-viewer-undo" aria-label="Deshacer" disabled>
       <i data-icon="undo-2"></i>
     </button>
   </header>
+
+  <section id="pdf-edit-panel" class="pdf-edit-panel" aria-label="Editar PDF" hidden>
+    <div class="pdf-edit-controls">
+      <button type="button" class="btn secondary" id="pdf-edit-text" aria-pressed="true"><i data-icon="type"></i>Texto</button>
+      <button type="button" class="btn secondary" id="pdf-edit-objects" aria-pressed="false"><i data-icon="image"></i>Objetos</button>
+      <button type="button" class="btn secondary" id="pdf-edit-ocr" hidden>OCR</button>
+      <button type="button" class="icon-btn pdf-edit-undo" id="pdf-edit-undo" aria-label="Deshacer edición PDF" title="Deshacer edición PDF" disabled><i data-icon="undo-2"></i></button>
+    </div>
+    <p id="pdf-edit-status" class="pdf-edit-status" role="status"></p>
+    <label id="pdf-edit-granularity" class="pdf-edit-option" hidden>
+      Seleccionar
+      <select id="pdf-edit-ocr-unit"><option value="word">Palabras</option><option value="line">Líneas</option></select>
+    </label>
+    <form id="pdf-edit-form" class="pdf-edit-form" hidden>
+      <label for="pdf-edit-input" class="sr-only">Texto corregido</label>
+      <input id="pdf-edit-input" type="text" maxlength="1000" autocomplete="off" aria-label="Texto corregido">
+      <button type="submit" class="btn primary">Aplicar</button>
+      <button type="button" class="btn secondary" id="pdf-edit-cancel">Cancelar</button>
+    </form>
+    <div id="pdf-edit-transform" class="pdf-edit-controls" hidden aria-label="Transformar objeto">
+      <button type="button" class="btn secondary" data-edit-transform="smaller" aria-label="Reducir tamaño">−</button>
+      <button type="button" class="btn secondary" data-edit-transform="larger" aria-label="Aumentar tamaño">+</button>
+      <button type="button" class="btn secondary" data-edit-transform="rotate">Girar 15°</button>
+      <button type="button" class="btn secondary" id="pdf-edit-finish-object">Listo</button>
+    </div>
+  </section>
 
   <!-- El documento ocupa todo el visor; nada se superpone al contenido -->
   <div id="pdf-scroll" class="pdf-scroll" tabindex="0" aria-label="Documento PDF">
@@ -591,6 +620,7 @@
 <script src="js/drawSignature.js"></script>
 <script src="js/pdfViewer.js"></script>
 <script src="js/placement.js"></script>
+<script src="js/pdfEditor.js"></script>
 <script src="js/exportPdf.js"></script>
 <script src="js/scanImage.js"></script>
 <script src="js/scanDraft.js"></script>

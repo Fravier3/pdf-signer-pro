@@ -3,7 +3,16 @@
  * una vez instalada. Estrategia: "cache first, network fallback" para
  * el shell de la app, y "network first" para navegación de documento.
  */
-const CACHE_NAME = "pdf-signer-pro-v16";
+const CACHE_NAME = "pdf-signer-pro-v17";
+
+const EDIT_ENGINE_CACHE = "pdf-pro-edit-engine-1";
+const EDIT_ENGINE_ASSETS = [
+  "https://cdn.jsdelivr.net/npm/@embedpdf/pdfium@2.15.1/dist/",
+  "https://cdn.jsdelivr.net/npm/tesseract.js@6.0.1/dist/",
+  "https://cdn.jsdelivr.net/npm/tesseract.js-core@6.0.0/",
+  "https://cdn.jsdelivr.net/npm/@tesseract.js-data/spa@1.0.0/",
+  "https://cdn.jsdelivr.net/npm/@tesseract.js-data/eng@1.0.0/",
+];
 
 const ENGINE_CACHE = "pdf-pro-opencv-4.10.0-release.1";
 const ENGINE_URL = "https://cdn.jsdelivr.net/npm/@techstark/opencv-js@4.10.0-release.1/dist/opencv.js";
@@ -22,6 +31,11 @@ const APP_SHELL = [
   "./js/signatures.js",
   "./js/drawSignature.js",
   "./js/pdfViewer.js",
+  "./js/pdfEditor.js",
+  "./js/pdfEditEngine.mjs",
+  "./js/pdfEditWorker.mjs",
+  "./js/pdfEditOcr.mjs",
+  "./js/pdfOcrWorker.js",
   "./js/placement.js",
   "./js/exportPdf.js",
   "./js/app.js",
@@ -79,15 +93,16 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
   const url = event.request.url;
-  if (url === ENGINE_URL ||
+  const editAsset = EDIT_ENGINE_ASSETS.some((prefix) => url.startsWith(prefix));
+  if (editAsset || url === ENGINE_URL ||
       url.startsWith("https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/") ||
       url === "https://cdn.jsdelivr.net/npm/quadscan@1.0.0/models/lcnet100_h_e_bifpn_256_fp32.onnx") {
     event.respondWith((async () => {
-      const cache = await caches.open(ENGINE_CACHE);
+      const cache = await caches.open(editAsset ? EDIT_ENGINE_CACHE : ENGINE_CACHE);
       const cached = await cache.match(event.request);
       if (cached) return cached;
       const response = await fetch(event.request);
-      if (response.ok && response.type === "cors") {
+      if (response.ok && (response.type === "cors" || (editAsset && response.type === "opaque"))) {
         try { await cache.put(event.request, response.clone()); } catch { /* storage unavailable */ }
       }
       return response;

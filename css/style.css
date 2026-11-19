@@ -948,3 +948,85 @@ td.col-actions{ text-align: right; }
   }
   .shine::after{ display: none; }
 }
+
+/* Edición sobre las páginas del visor existente */
+.pdf-edit-toggle{ flex: 0 0 auto; min-height: 44px; padding: 0 10px; }
+.pdf-edit-toggle[aria-expanded="true"], .pdf-edit-controls [aria-pressed="true"]{
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.pdf-edit-panel{
+  flex: 0 0 auto;
+  padding: 6px 12px 8px;
+  background: var(--bg-elevated-solid);
+  border-bottom: 1px solid var(--separator);
+}
+.pdf-edit-controls, .pdf-edit-form, .pdf-edit-option{
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.pdf-edit-controls .btn, .pdf-edit-form .btn, .pdf-edit-controls .icon-btn{
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 9px;
+}
+.pdf-edit-undo{ margin-inline-start: auto; }
+.pdf-edit-status{
+  margin: 5px 0 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.35;
+}
+.pdf-edit-form, .pdf-edit-option{ margin-top: 6px; }
+.pdf-edit-form input, .pdf-edit-option select{
+  min-width: 0;
+  min-height: 44px;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--separator);
+  border-radius: var(--r-md);
+  font: inherit;
+  font-size: 16px;
+  padding: 6px 9px;
+}
+.pdf-edit-form input{ flex: 1 1 100px; }
+.pdf-edit-layer{
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+}
+.pdf-edit-target, .pdf-edit-frame{
+  position: absolute;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  pointer-events: auto;
+}
+.pdf-edit-target{
+  color: inherit;
+  box-shadow: inset 0 0 0 1px #7962e3;
+  background: #846afa20;
+  cursor: pointer;
+}
+.pdf-edit-target[aria-current="true"], .pdf-edit-target:focus-visible{
+  background: #846afa4d;
+  outline: 2px solid #5938c6;
+}
+.pdf-edit-frame{
+  touch-action: none;
+  cursor: grab;
+  box-shadow: 0 0 0 2px #5938c6;
+  background: #846afa29;
+}
+.pdf-edit-frame::after{
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border: 1px solid white;
+  pointer-events: none;
+}
+.pdf-edit-frame:active{ cursor: grabbing; }
+.pdf-edit-frame:focus-visible{ outline: 2px solid #5938c6; outline-offset: 4px; }

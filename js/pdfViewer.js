@@ -19,7 +19,7 @@ const PdfViewer = (() => {
   let currentBytes = null;
   let lazyObserver = null;
   let currentFileName = "";
-  let onPageChange = null;
+  let visiblePage = 1;
 
   // ---- Gesture state ----
   let pinchStartDist = 0;
@@ -123,6 +123,20 @@ const PdfViewer = (() => {
     return pages.length;
   }
 
+  async function applyEditedPage(bytes, pageNum, expectedBytes) {
+    const nextDoc = await loadDocument(bytes);
+    if (currentBytes !== expectedBytes || nextDoc.numPages !== pageWrappers.length) {
+      await nextDoc.destroy();
+      throw new Error("El documento cambió durante la edición.");
+    }
+    replaceDocument(nextDoc);
+    currentBytes = bytes;
+    const entry = pageWrappers[pageNum - 1];
+    await entry.rendering;
+    entry.rendered = false;
+    await renderPage(pageNum);
+  }
+
   function addPageWrappers(firstPage) {
     for (let pageNum = firstPage; pageNum <= pdfDoc.numPages; pageNum++) {
       const wrapEl = document.createElement("div");
@@ -212,7 +226,10 @@ const PdfViewer = (() => {
 
   function updatePageIndicator(current, total) {
     document.getElementById("viewer-page-indicator").textContent = `${current} / ${total}`;
-    if (onPageChange) onPageChange(current, total);
+    if (visiblePage !== current) {
+      visiblePage = current;
+      container.dispatchEvent(new CustomEvent("pdf-page-change", { detail: { pageNum: current } }));
+    }
   }
 
   // ---------------- GESTOS: pinch-zoom, doble toque, pan ----------------
@@ -236,7 +253,7 @@ const PdfViewer = (() => {
   // Arrastrar con el ratón para mover el documento en cualquier dirección
   function setupMousePan() {
     container.addEventListener("mousedown", (e) => {
-      if (e.button !== 0 || e.target.closest(".placed-sig")) return;
+      if (e.button !== 0 || e.target.closest(".placed-sig, .pdf-edit-target, .pdf-edit-frame")) return;
       // Clic sobre la barra de scroll: no es un arrastre del documento.
       const r = container.getBoundingClientRect();
       if (e.clientX > r.left + container.clientWidth || e.clientY > r.top + container.clientHeight) return;
@@ -328,10 +345,11 @@ const PdfViewer = (() => {
   }
 
   function onTouchStart(e) {
+    if (e.target.closest(".pdf-edit-frame")) return;
     if (e.touches.length === 2 && !PlacementManager.isEditingActive()) {
       pinchStartDist = dist(e.touches[0], e.touches[1]);
       pinchStartScale = scale;
-    } else if (e.touches.length === 1) {
+    } else if (e.touches.length === 1 && !e.target.closest(".pdf-edit-target")) {
       const now = Date.now();
       if (now - lastTapTime < 280) {
         // doble toque -> alterna zoom
@@ -344,6 +362,7 @@ const PdfViewer = (() => {
   }
 
   function onTouchMove(e) {
+    if (e.target.closest(".pdf-edit-frame")) return;
     if (e.touches.length === 2 && !PlacementManager.isEditingActive()) {
       e.preventDefault();
       const d = dist(e.touches[0], e.touches[1]);
@@ -399,6 +418,8 @@ const PdfViewer = (() => {
   return {
     openFile,
     appendFile,
+    applyEditedPage,
+    getVisiblePage: () => visiblePage,
     getPdfDoc,
     getPageWrapEl,
     getAllPageWraps,
