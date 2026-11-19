@@ -5,23 +5,11 @@ moverlas / escalarlas / rotarlas y exportar un nuevo PDF con las firmas
 incrustadas de forma permanente. **100% local**: ningún archivo ni firma
 sale nunca de tu dispositivo.
 
-## ⚠️ Antes de publicar: 1 paso obligatorio
+## Ejecutar e instalar
 
-Este proyecto necesita 2 librerías de terceros (PDF.js y pdf-lib) que **no
-pude incluir en el paquete** por no tener acceso a internet en el entorno
-donde generé este código. Lee **`js/lib/LEEME_IMPORTANTE.txt`** — son 3
-archivos para descargar y copiar en `js/lib/`, toma 2 minutos. Todo lo
-demás (HTML, CSS, JS de la app, íconos, manifest, service worker) está
-100% completo y no requiere ningún cambio.
+Las librerías del visor y la exportación están incluidas en `js/lib/`. Para ejecutar localmente, usa `python3 -m http.server 8000` en la raíz y abre `http://localhost:8000/`.
 
-## Publicar en GitHub Pages
-
-1. Añade los 3 archivos de librerías indicados en `js/lib/LEEME_IMPORTANTE.txt`.
-2. Sube todo el contenido de esta carpeta a un repositorio de GitHub.
-3. En el repositorio: **Settings → Pages → Source → rama principal (root)**.
-4. Abre la URL que te da GitHub Pages. Desde el móvil, usa "Añadir a
-   pantalla de inicio" (iPhone) o "Instalar aplicación" (Android) para
-   instalarla como app nativa.
+En GitHub Pages, publica la raíz de la rama principal. Abre [PDF Pro](https://fravier3.github.io/pdf-signer-pro/) y usa «Añadir a pantalla de inicio» en iPhone o «Instalar aplicación» en Android.
 
 ## Estructura del proyecto
 
