@@ -18,6 +18,31 @@ function loadLibrary() {
   return tesseract;
 }
 
+function paragraphRegions(lines) {
+  const groups = [];
+  for (const line of lines) {
+    const current = groups.at(-1);
+    const previous = current?.at(-1);
+    const height = line.box.y1 - line.box.y0;
+    const gap = previous ? line.box.y0 - previous.box.y1 : Infinity;
+    if (gap > Math.max(height, previous ? previous.box.y1 - previous.box.y0 : 0) * 1.3) {
+      groups.push([line]);
+    } else {
+      current.push(line);
+    }
+  }
+  return groups.map((lines) => ({
+    text: lines.map((line) => line.text).join(" "),
+    box: {
+      x0: Math.min(...lines.map(({ box }) => box.x0)),
+      y0: Math.min(...lines.map(({ box }) => box.y0)),
+      x1: Math.max(...lines.map(({ box }) => box.x1)),
+      y1: Math.max(...lines.map(({ box }) => box.y1)),
+    },
+    lines,
+  }));
+}
+
 function regions(blocks) {
   const lines = [];
   const words = [];
@@ -27,9 +52,7 @@ function regions(blocks) {
       const paragraphLines = paragraph.lines.filter((line) => line.text.trim())
         .map((line) => ({ text: line.text.trim(), box: line.bbox, baseline: line.baseline }));
       lines.push(...paragraphLines);
-      if (paragraphLines.length) {
-        paragraphs.push({ text: paragraphLines.map((line) => line.text).join(" "), box: paragraph.bbox, lines: paragraphLines });
-      }
+      paragraphs.push(...paragraphRegions(paragraphLines));
       for (const line of paragraph.lines) {
         for (const word of line.words) {
           if (word.text.trim()) words.push({ text: word.text, box: word.bbox, baseline: line.baseline });

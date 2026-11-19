@@ -37,7 +37,7 @@ PWA estática en GitHub Pages. HTML, CSS y JavaScript. PDF.js 2.6.347 para el vi
 
 - Se añadió «Editar PDF» a Inicio, entre «Abrir PDF» y «Scan». En Chromium móvil emulado se verificó que el botón abre el selector, entra a edición y permite corregir una frase. También se verificaron «Abrir PDF» y el botón «Editar» del visor.
 
-- «Texto» abre por defecto en «Párrafos», con una caja de varias líneas. El texto nativo reconstruye renglones y párrafos por posición. OCR usa los bloques del motor de reconocimiento. Se probó en Chromium táctil emulado con un PDF que guarda cada letra por separado, una segunda columna y un párrafo escaneado de dos líneas. Se verificó con `pdftotext` que desapareció el texto nativo anterior y que las correcciones y los bloques vecinos permanecieron seleccionables. Se volvió a probar OCR por palabras y líneas, objetos y exportación.
+- «Texto» abre por defecto en «Párrafos», con una caja de varias líneas. El texto nativo reconstruye renglones y párrafos por posición. OCR usa los bloques del motor de reconocimiento. Se probó en Chromium táctil emulado con un PDF que guarda cada letra por separado, una segunda columna y un párrafo escaneado de dos líneas. Se verificó con `pdftotext` que desapareció el texto nativo anterior y que las correcciones y los bloques vecinos permanecieron seleccionables. Se volvió a probar OCR por palabras y líneas, objetos y exportación. También se verificó, comparando píxeles del escaneo exportado, que un pie separado por espacio amplio conserva su imagen al editar el párrafo superior.
 
 ## Pendientes, límites y siguiente paso
 
