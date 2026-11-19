@@ -422,17 +422,19 @@ const PdfEditor = (() => {
     render();
   }
 
+  function enter() {
+    if (enabled || applying || !PdfViewer.hasDocument()) return;
+    enabled = true;
+    mode = "text";
+    panel.hidden = false;
+    get("toggle").setAttribute("aria-expanded", "true");
+    void inspect(PdfViewer.getVisiblePage());
+  }
+
   get("toggle").addEventListener("click", () => {
     if (applying) return;
-    if (enabled) {
-      leave();
-    } else {
-      enabled = true;
-      mode = "text";
-      panel.hidden = false;
-      get("toggle").setAttribute("aria-expanded", "true");
-      void inspect(PdfViewer.getVisiblePage());
-    }
+    if (enabled) leave();
+    else enter();
   });
   get("text").addEventListener("click", () => changeMode("text"));
   get("objects").addEventListener("click", () => changeMode("objects"));
@@ -462,5 +464,5 @@ const PdfEditor = (() => {
     }, 130);
   });
 
-  return { leave, reset, documentAppended, hasEdits: () => edited, isApplying: () => applying };
+  return { enter, leave, reset, documentAppended, hasEdits: () => edited, isApplying: () => applying };
 })();

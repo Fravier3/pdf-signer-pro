@@ -35,6 +35,8 @@ PWA estática en GitHub Pages. HTML, CSS y JavaScript. PDF.js 2.6.347 para el vi
 - GitHub Pages publicó «Editar» desde `main`. Se verificaron en la URL pública el botón del visor, el módulo del editor y el service worker.
 - Se corrigió la actualización de las pestañas que siguen abiertas desde la primera instalación. Chromium móvil emulado conservó el PDF activo y recargó al cerrarlo en dos pruebas: de v16 a v18 con un controlador previo y de una instalación nueva de v18 a una versión de prueba posterior.
 
+- Se añadió «Editar PDF» a Inicio, entre «Abrir PDF» y «Scan». En Chromium móvil emulado se verificó que el botón abre el selector, entra a edición y permite corregir una frase. También se verificaron «Abrir PDF» y el botón «Editar» del visor.
+
 ## Pendientes, límites y siguiente paso
 
 - Ejecutar el mismo recorrido en Safari de iPhone y Chrome de Android físicos, tanto en pestaña como con la PWA instalada. La prueba de WebKit en Linux quedó bloqueada por bibliotecas del sistema ausentes. Quedan por comprobar el teclado de iOS, cámara física y el menú nativo de Guardar o Compartir.

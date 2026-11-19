@@ -121,6 +121,7 @@
 
   document.getElementById("btn-open-scan").addEventListener("click", navHandlers.scan);
   document.getElementById("btn-open-pdf").addEventListener("click", () => pickPdf("open"));
+  document.getElementById("btn-edit-pdf").addEventListener("click", () => pickPdf("edit"));
   document.getElementById("action-append-pdf").addEventListener("click", () => {
     BottomSheet.close();
     pickPdf("append");
@@ -145,6 +146,7 @@
         }
       } else {
         await openDocument(file);
+        if (pdfInputAction === "edit") PdfEditor.enter();
       }
     } catch (err) {
       console.error(err);
