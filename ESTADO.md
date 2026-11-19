@@ -32,6 +32,9 @@ PWA estática en GitHub Pages. HTML, CSS y JavaScript. PDF.js 2.6.347 para el vi
 - El OCR y la selección de texto nativo funcionaron sin conexión en Chromium con la caché preparada. Para las pruebas de navegador se sirvieron localmente las mismas versiones de las dependencias porque el Chromium del entorno no alcanzó el CDN. Se comprobaron por separado las respuestas públicas de los recursos del CDN.
 - Se corrigió un fallo de inicialización reproducible al pasar modelos como objetos a Tesseract.js 6.0.1. Se usa su forma estándar `spa+eng`. También se corrigió el uso de una opción de anotaciones no expuesta por PDF.js 2.6.347.
 
+- GitHub Pages publicó «Editar» desde `main`. Se verificaron en la URL pública el botón del visor, el módulo del editor y el service worker.
+- Se corrigió la actualización de las pestañas que siguen abiertas desde la primera instalación. Chromium móvil emulado conservó el PDF activo y recargó al cerrarlo en dos pruebas: de v16 a v18 con un controlador previo y de una instalación nueva de v18 a una versión de prueba posterior.
+
 ## Pendientes, límites y siguiente paso
 
 - Ejecutar el mismo recorrido en Safari de iPhone y Chrome de Android físicos, tanto en pestaña como con la PWA instalada. La prueba de WebKit en Linux quedó bloqueada por bibliotecas del sistema ausentes. Quedan por comprobar el teclado de iOS, cámara física y el menú nativo de Guardar o Compartir.

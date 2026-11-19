@@ -407,9 +407,13 @@
     if (!("serviceWorker" in navigator)) return;
     // Solo es una ACTUALIZACIÓN si ya había un service worker controlando la
     // página; en la primera instalación no hay nada que recargar.
-    const hadController = !!navigator.serviceWorker.controller;
+    let previousController = navigator.serviceWorker.controller;
     navigator.serviceWorker.addEventListener("controllerchange", () => {
-      if (!hadController) return;
+      const controller = navigator.serviceWorker.controller;
+      if (!controller || controller === previousController) return;
+      const isUpdate = Boolean(previousController);
+      previousController = controller;
+      if (!isUpdate) return;
       updatePending = true;
       applyUpdateIfSafe();
     });
