@@ -12,7 +12,7 @@ PWA estática en GitHub Pages. HTML, CSS y JavaScript. PDF.js 2.6.347 para el vi
 
 ## Hecho
 
-- Se partió de `main` en `c42e4d9`. Se revisaron las ramas, el historial y el árbol limpio. El proyecto no tenía implementación previa de «Editar» ni los archivos de continuidad. El trabajo vive en `editar-pdf`.
+- Se partió de `main` en `c42e4d9`. Se revisaron las ramas, el historial y el árbol limpio. El proyecto no tenía implementación previa de «Editar» ni los archivos de continuidad. Los commits se prepararon en `editar-pdf`. GitHub Pages publica desde `main`.
 - «Editar» se abre dentro del visor. «Texto» sustituye contenido seleccionable nativo. En escaneos con una imagen de página independiente, OCR reconoce palabras y líneas en español e inglés, corrige los píxeles de la selección y agrega texto seleccionable. También retira el texto anterior de una capa OCR superpuesta compatible.
 - «Objetos» permite seleccionar imágenes o gráficos, mover el marco por arrastre o con las flechas, ajustar el tamaño y girar. Las ediciones tienen su propio botón Deshacer y se exportan desde los controles de Guardar y Compartir ya existentes.
 - Se actualizaron `AGENTS.md`, `CLAUDE.md` y `README.md`. El push por CLI requiere autenticación en este entorno. Se guardaron los avances en GitHub usando su conexión autorizada.
@@ -36,7 +36,7 @@ PWA estática en GitHub Pages. HTML, CSS y JavaScript. PDF.js 2.6.347 para el vi
 
 - Ejecutar el mismo recorrido en Safari de iPhone y Chrome de Android físicos, tanto en pestaña como con la PWA instalada. La prueba de WebKit en Linux quedó bloqueada por bibliotecas del sistema ausentes. Quedan por comprobar el teclado de iOS, cámara física y el menú nativo de Guardar o Compartir.
 - El editor opera sobre objetos de primer nivel. El OCR necesita una imagen de página independiente. Cuando la capa OCR previa agrupa varias palabras, usa la línea completa. Los logos impresos dentro de la foto de la hoja requieren una herramienta adicional de recorte y relleno. Las fuentes incrustadas pueden sustituirse por una base de estilo similar. Añadir páginas reinicia el historial de Deshacer.
-- Primer paso para retomar. Abre `editar-pdf`, prueba los tres casos en un iPhone físico y actualiza este archivo con los resultados antes de integrar la rama.
+- Primer paso para retomar. Prueba los tres casos en un iPhone físico con la [app de GitHub Pages](https://fravier3.github.io/pdf-signer-pro/) y actualiza este archivo con los resultados.
 
 ## Ejecutar y probar
 
