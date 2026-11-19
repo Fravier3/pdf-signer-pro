@@ -84,7 +84,7 @@ PDFSignerPro/
 ## Editar un PDF
 
 1. En Inicio, toca «Editar PDF» y elige el documento. Si ya tienes un PDF abierto, toca «Editar» en el visor. Usa «Texto» u «Objetos».
-2. En «Texto», toca una palabra o un bloque resaltado. Escribe la corrección y toca «Aplicar». En una hoja escaneada, pulsa «OCR» y elige si quieres seleccionar palabras o líneas. Si la capa OCR anterior guarda la línea completa, selecciona «Líneas» para sustituirla.
+2. En «Texto», toca un párrafo resaltado para editarlo en una sola caja. El texto se ajusta al espacio del bloque. Puedes cambiar a «Líneas» o «Fragmentos» en el selector. En una hoja escaneada, pulsa «OCR» para reconocer párrafos, líneas o palabras.
 3. En «Objetos», toca una imagen o gráfico independiente, arrastra el marco para moverlo o usa las flechas del teclado. Usa «−», «+» y «Girar 15°» para ajustar el tamaño y el ángulo. El botón «Deshacer edición PDF» revierte el último cambio.
 4. Usa «Guardar PDF» o «Compartir PDF» para exportar la copia. Abrir un documento nuevo o añadir páginas inicia un nuevo historial de deshacer.
 

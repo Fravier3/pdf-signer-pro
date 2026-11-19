@@ -3,7 +3,7 @@
  * una vez instalada. Estrategia: "cache first, network fallback" para
  * el shell de la app, y "network first" para navegación de documento.
  */
-const CACHE_NAME = "pdf-signer-pro-v19";
+const CACHE_NAME = "pdf-signer-pro-v20";
 
 const EDIT_ENGINE_CACHE = "pdf-pro-edit-engine-1";
 const EDIT_ENGINE_ASSETS = [
@@ -32,6 +32,7 @@ const APP_SHELL = [
   "./js/drawSignature.js",
   "./js/pdfViewer.js",
   "./js/pdfEditor.js",
+  "./js/pdfEditText.js",
   "./js/pdfEditEngine.mjs",
   "./js/pdfEditWorker.mjs",
   "./js/pdfEditOcr.mjs",

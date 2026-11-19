@@ -93,7 +93,12 @@ function readObjects(api, page) {
       if (type === PDF_TEXT) {
         const text = textOf(api, object, textPage);
         const hidden = api.FPDFTextObj_GetTextRenderMode(object) === INVISIBLE;
-        if (text.trim()) objects.push({ id, type, bounds, text, hidden });
+        if (text.trim()) {
+          const matrix = getMatrix(api, object);
+          const size = memory(api, 4, (p) => api.FPDFTextObj_GetFontSize(object, p) ? api.pdfium.HEAPF32[p / 4] : null);
+          const font = similarFont(fontName(api, api.FPDFTextObj_GetFont(object)));
+          objects.push({ id, type, bounds, text, hidden, origin: matrix.slice(4), size: size && size * Math.hypot(matrix[0], matrix[1]), font });
+        }
       } else {
         objects.push({ id, type, bounds });
       }
@@ -205,23 +210,25 @@ function sampleBackground(api, bitmap, left, top, right, bottom) {
   return (255 * 2 ** 24 + r * 2 ** 16 + g * 2 ** 8 + b) >>> 0;
 }
 
-function patchScan(api, page, image, corners) {
+function patchScan(api, page, image, regions) {
   const [a, b, c, d, e, f] = getMatrix(api, image);
   const determinant = a * d - b * c;
   if (Math.abs(determinant) < 0.001) throw new Error("La imagen escaneada tiene una orientación no compatible.");
-  const xs = corners.map(([x, y]) => (d * (x - e) - c * (y - f)) / determinant);
-  const ys = corners.map(([x, y]) => 1 - (a * (y - f) - b * (x - e)) / determinant);
   const bitmap = requireResult(api.FPDFImageObj_GetBitmap(image), "No se pudo leer la imagen escaneada.");
   try {
     const width = api.FPDFBitmap_GetWidth(bitmap);
     const height = api.FPDFBitmap_GetHeight(bitmap);
-    const left = Math.max(0, Math.floor(Math.min(...xs) * width) - 1);
-    const top = Math.max(0, Math.floor(Math.min(...ys) * height) - 1);
-    const right = Math.min(width, Math.ceil(Math.max(...xs) * width) + 1);
-    const bottom = Math.min(height, Math.ceil(Math.max(...ys) * height) + 1);
-    requireResult(right > left && bottom > top, "El texto seleccionado queda fuera de la imagen.");
-    const background = sampleBackground(api, bitmap, left, top, right, bottom);
-    requireResult(api.FPDFBitmap_FillRect(bitmap, left, top, right - left, bottom - top, background), "No se pudo reemplazar el texto en la imagen.");
+    for (const corners of regions) {
+      const xs = corners.map(([x, y]) => (d * (x - e) - c * (y - f)) / determinant);
+      const ys = corners.map(([x, y]) => 1 - (a * (y - f) - b * (x - e)) / determinant);
+      const left = Math.max(0, Math.floor(Math.min(...xs) * width) - 1);
+      const top = Math.max(0, Math.floor(Math.min(...ys) * height) - 1);
+      const right = Math.min(width, Math.ceil(Math.max(...xs) * width) + 1);
+      const bottom = Math.min(height, Math.ceil(Math.max(...ys) * height) + 1);
+      requireResult(right > left && bottom > top, "El texto seleccionado queda fuera de la imagen.");
+      const background = sampleBackground(api, bitmap, left, top, right, bottom);
+      requireResult(api.FPDFBitmap_FillRect(bitmap, left, top, right - left, bottom - top, background), "No se pudo reemplazar el texto en la imagen.");
+    }
     memory(api, 4, (p) => {
       api.pdfium.HEAPU32[p / 4] = page;
       requireResult(api.FPDFImageObj_SetBitmap(p, 1, image, bitmap), "No se pudo guardar la imagen corregida.");
@@ -232,7 +239,7 @@ function patchScan(api, page, image, corners) {
 }
 
 function writeOcr(api, doc, page, image, action) {
-  const { corners, text, baseline, size, direction, width } = action;
+  const { corners, erase, replacementLines } = action;
   const left = Math.min(...corners.map(([x]) => x));
   const right = Math.max(...corners.map(([x]) => x));
   const bottom = Math.min(...corners.map(([, y]) => y));
@@ -255,14 +262,18 @@ function writeOcr(api, doc, page, image, action) {
     }
   }
 
-  patchScan(api, page, image, corners);
+  patchScan(api, page, image, erase ?? [corners]);
   removeText.forEach((object) => remove(api, page, object));
-  if (!text.trim()) return;
-
-  if (!/^[\x20-\x7e\xa0-\xff€“”‘’–—…]+$/.test(text)) {
-    throw new Error("La fuente de OCR admite caracteres latinos, como los del español y del inglés.");
+  for (const line of replacementLines ?? [action]) {
+    if (line.text.trim()) writePlacedText(api, doc, page, line, "Helvetica");
   }
-  const replacement = requireResult(api.FPDFPageObj_NewTextObj(doc, "Helvetica", size), "No se pudo crear la corrección.");
+}
+
+function writePlacedText(api, doc, page, { text, size, width, direction, baseline }, font, source = null, index = null) {
+  if (!/^[\x20-\x7e\xa0-\xff€“”‘’–—…]+$/.test(text)) {
+    throw new Error("La fuente para bloques admite caracteres latinos, como los del español y el inglés.");
+  }
+  const replacement = requireResult(api.FPDFPageObj_NewTextObj(doc, font, size), "No se pudo crear la corrección.");
   let inserted = false;
   try {
     requireResult(utf16(api, text, (p) => api.FPDFText_SetText(replacement, p)), "No se pudo escribir la corrección.");
@@ -270,11 +281,26 @@ function writeOcr(api, doc, page, image, action) {
     const [x0, , x1] = getBounds(api, replacement);
     const stretch = Math.min(1, width / Math.max(1, x1 - x0));
     setMatrix(api, replacement, [dx * stretch, dy * stretch, -dy, dx, ...baseline], api.FPDFPageObj_SetMatrix);
-    api.FPDFPage_InsertObject(page, replacement);
-    inserted = true;
+    if (source) copyColor(api, source, replacement, api.FPDFPageObj_GetFillColor, api.FPDFPageObj_SetFillColor);
+    if (index === null) {
+      api.FPDFPage_InsertObject(page, replacement);
+      inserted = true;
+    } else {
+      inserted = api.FPDFPage_InsertObjectAtIndex(page, replacement, index);
+      requireResult(inserted, "No se pudo insertar la corrección en su posición.");
+    }
   } finally {
     if (!inserted) api.FPDFPageObj_Destroy(replacement);
   }
+}
+
+function writeBlock(api, doc, page, { ids, replacementLines }) {
+  const sortedIds = [...new Set(ids)].sort((a, b) => a - b);
+  const objects = sortedIds.map((id) => api.FPDFPage_GetObject(page, id));
+  requireResult(objects.length && objects.every((object) => api.FPDFPageObj_GetType(object) === PDF_TEXT), "El bloque de texto cambió.");
+  const font = similarFont(fontName(api, api.FPDFTextObj_GetFont(objects[0])));
+  replacementLines.forEach((line, index) => writePlacedText(api, doc, page, line, font, objects[0], sortedIds[0] + index));
+  objects.forEach((object) => remove(api, page, object));
 }
 
 function save(api, doc) {
@@ -301,10 +327,12 @@ export async function handlePdfEdit({ bytes, pageNum, action }) {
       const page = requireResult(api.FPDF_LoadPage(doc, pageNum - 1), "No se pudo abrir la página para editar.");
       try {
         if (!action) return readObjects(api, page);
-        const object = requireResult(api.FPDFPage_GetObject(page, action.id), "El objeto ya no está en la página.");
+        const object = requireResult(api.FPDFPage_GetObject(page, action.id ?? action.ids?.[0]), "El objeto ya no está en la página.");
         const type = api.FPDFPageObj_GetType(object);
         if (action.kind === "text" && type === PDF_TEXT) {
           writeText(api, doc, page, action.id, object, action.text);
+        } else if (action.kind === "block" && type === PDF_TEXT) {
+          writeBlock(api, doc, page, action);
         } else if (action.kind === "ocr" && type === PDF_IMAGE) {
           writeOcr(api, doc, page, object, action);
         } else if (action.kind === "transform" && [PDF_PATH, PDF_IMAGE, PDF_FORM, PDF_SHADING].includes(type)) {

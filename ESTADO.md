@@ -37,10 +37,12 @@ PWA estática en GitHub Pages. HTML, CSS y JavaScript. PDF.js 2.6.347 para el vi
 
 - Se añadió «Editar PDF» a Inicio, entre «Abrir PDF» y «Scan». En Chromium móvil emulado se verificó que el botón abre el selector, entra a edición y permite corregir una frase. También se verificaron «Abrir PDF» y el botón «Editar» del visor.
 
+- «Texto» abre por defecto en «Párrafos», con una caja de varias líneas. El texto nativo reconstruye renglones y párrafos por posición. OCR usa los bloques del motor de reconocimiento. Se probó en Chromium táctil emulado con un PDF que guarda cada letra por separado, una segunda columna y un párrafo escaneado de dos líneas. Se verificó con `pdftotext` que desapareció el texto nativo anterior y que las correcciones y los bloques vecinos permanecieron seleccionables. Se volvió a probar OCR por palabras y líneas, objetos y exportación.
+
 ## Pendientes, límites y siguiente paso
 
 - Ejecutar el mismo recorrido en Safari de iPhone y Chrome de Android físicos, tanto en pestaña como con la PWA instalada. La prueba de WebKit en Linux quedó bloqueada por bibliotecas del sistema ausentes. Quedan por comprobar el teclado de iOS, cámara física y el menú nativo de Guardar o Compartir.
-- El editor opera sobre objetos de primer nivel. El OCR necesita una imagen de página independiente. Cuando la capa OCR previa agrupa varias palabras, usa la línea completa. Los logos impresos dentro de la foto de la hoja requieren una herramienta adicional de recorte y relleno. Las fuentes incrustadas pueden sustituirse por una base de estilo similar. Añadir páginas reinicia el historial de Deshacer.
+- La detección de párrafos nativos se basa en la posición del texto. Si la maquetación mezcla columnas, tipografías o espaciados, se puede cambiar a «Líneas» o «Fragmentos». El editor opera sobre objetos de primer nivel. El OCR necesita una imagen de página independiente. Cuando la capa OCR previa agrupa varias palabras, usa la línea completa. Los logos impresos dentro de la foto de la hoja requieren una herramienta adicional de recorte y relleno. Las fuentes incrustadas pueden sustituirse por una base de estilo similar. Añadir páginas reinicia el historial de Deshacer.
 - Primer paso para retomar. Prueba los tres casos en un iPhone físico con la [app de GitHub Pages](https://fravier3.github.io/pdf-signer-pro/) y actualiza este archivo con los resultados.
 
 ## Ejecutar y probar

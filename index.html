@@ -302,11 +302,15 @@
     <p id="pdf-edit-status" class="pdf-edit-status" role="status"></p>
     <label id="pdf-edit-granularity" class="pdf-edit-option" hidden>
       Seleccionar
-      <select id="pdf-edit-ocr-unit"><option value="word">Palabras</option><option value="line">Líneas</option></select>
+      <select id="pdf-edit-unit">
+        <option value="paragraph">Párrafos</option>
+        <option value="line">Líneas</option>
+        <option value="word">Fragmentos</option>
+      </select>
     </label>
     <form id="pdf-edit-form" class="pdf-edit-form" hidden>
       <label for="pdf-edit-input" class="sr-only">Texto corregido</label>
-      <input id="pdf-edit-input" type="text" maxlength="1000" autocomplete="off">
+      <textarea id="pdf-edit-input" rows="3" maxlength="16000" autocomplete="off"></textarea>
       <button type="submit" class="btn primary">Aplicar</button>
       <button type="button" class="btn secondary" id="pdf-edit-cancel">Cancelar</button>
     </form>
@@ -628,6 +632,7 @@
 <script src="js/drawSignature.js"></script>
 <script src="js/pdfViewer.js"></script>
 <script src="js/placement.js"></script>
+<script src="js/pdfEditText.js"></script>
 <script src="js/pdfEditor.js"></script>
 <script src="js/exportPdf.js"></script>
 <script src="js/scanImage.js"></script>

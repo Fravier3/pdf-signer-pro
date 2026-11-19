@@ -95,7 +95,8 @@ const PdfEditor = (() => {
     get("objects").setAttribute("aria-pressed", String(mode === "objects"));
     get("ocr").hidden = mode !== "text" || !context?.scan;
     get("ocr").disabled = applying || readingOcr;
-    get("granularity").hidden = mode !== "text" || !context?.ocr;
+    get("granularity").hidden = mode !== "text" || !(context?.ocr || context?.native?.word.length);
+    get("unit").querySelector('option[value="word"]').textContent = context?.ocr ? "Palabras" : "Fragmentos";
     for (const button of panel.querySelectorAll("form button, [data-edit-transform]")) button.disabled = applying;
   }
 
@@ -132,7 +133,7 @@ const PdfEditor = (() => {
         || (!objects.some((object) => object.type === 1 && !object.hidden)
           ? objects.find((object) => object.type === 5 && isScan(object, viewport))
           : null);
-      context = { pageNum, page, viewport, objects, scan: scan?.type === 3 ? scan : null, scanGroup: scan?.type === 5, ocr: keepOcr };
+      context = { pageNum, page, viewport, objects, scan: scan?.type === 3 ? scan : null, scanGroup: scan?.type === 5, ocr: keepOcr, native: PdfEditText.nativeRegions(objects, viewport) };
       render();
     } catch (err) {
       if (enabled && revision === token) setStatus(err.message);
@@ -155,7 +156,7 @@ const PdfEditor = (() => {
       return "Esta página no tiene objetos independientes compatibles.";
     }
     if (context.ocr) return count ? "Toca el texto detectado para corregirlo." : "OCR no encontró texto en esta página.";
-    if (count) return "Toca una palabra o línea para corregirla.";
+    if (count) return "Toca el texto resaltado para corregirlo.";
     if (context.scan) return "Pulsa OCR para reconocer el texto de esta página escaneada.";
     if (context.scanGroup) return "Este escaneo está dentro de un grupo PDF. El OCR admite imágenes de página independientes.";
     return "No se encontró texto editable en esta página.";
@@ -177,7 +178,7 @@ const PdfEditor = (() => {
       targets = objects.filter((object) => object.type !== 1 && object.id !== scan?.id
         && !(scanGroup && isScan(object, viewport)) && !isPageBackground(object, viewport));
     } else if (ocr) {
-      targets = ocr.regions[get("ocr-unit").value].map((region) => ({
+      targets = ocr.regions[get("unit").value].map((region) => ({
         ...region,
         targetOcr: true,
         originalBox: region.box,
@@ -189,7 +190,7 @@ const PdfEditor = (() => {
         ],
       }));
     } else {
-      targets = objects.filter((object) => object.type === 1 && !object.hidden);
+      targets = context.native[get("unit").value];
     }
 
     let count = 0;
@@ -227,7 +228,7 @@ const PdfEditor = (() => {
       const input = get("input");
       input.value = target.text;
       input.focus({ preventScroll: true });
-      input.select();
+      input.setSelectionRange(input.value.length, input.value.length);
       return;
     }
     get("transform").hidden = false;
@@ -302,6 +303,34 @@ const PdfEditor = (() => {
       return;
     }
     void apply({ kind: "transform", id: selected.id, matrix: [ax - e, ay - f, bx - e, by - f, e, f] }, selected.id);
+  }
+
+  function blockLayout(lines, box, text, viewport) {
+    const first = lines[0];
+    const last = lines.at(-1);
+    const size = first.size;
+    const advance = lines.length > 1 ? (last.baseline - first.baseline) / (lines.length - 1) : size;
+    return PdfEditText.layout(text, { box, baseline: first.baseline, advance, size, font: first.font }, viewport);
+  }
+
+  function ocrBlockAction(target, text) {
+    const { viewport } = context.ocr;
+    const { x0, y0, x1, y1 } = target.originalBox;
+    const box = [x0, y0, x1, y1];
+    const lines = target.lines.map(({ box, baseline }) => ({
+      size: (box.y1 - box.y0) / 0.75,
+      baseline: baseline?.has_baseline ? baseline.y0 : box.y1,
+      font: "Helvetica",
+    }));
+    const rect = ({ x0, y0, x1, y1 }) =>
+      [[x0 - 1, y0 - 1], [x1 + 1, y0 - 1], [x0 - 1, y1 + 1], [x1 + 1, y1 + 1]].map((point) => viewport.convertToPdfPoint(...point));
+    return {
+      kind: "ocr",
+      id: context.scan.id,
+      corners: rect(target.originalBox),
+      erase: target.lines.map((line) => rect(line.box)),
+      replacementLines: blockLayout(lines, box, text, viewport),
+    };
   }
 
   function ocrAction(target, text) {
@@ -426,6 +455,7 @@ const PdfEditor = (() => {
     if (enabled || applying || !PdfViewer.hasDocument()) return;
     enabled = true;
     mode = "text";
+    get("unit").value = "paragraph";
     panel.hidden = false;
     get("toggle").setAttribute("aria-expanded", "true");
     void inspect(PdfViewer.getVisiblePage());
@@ -442,13 +472,21 @@ const PdfEditor = (() => {
   get("undo").addEventListener("click", () => void undo());
   get("cancel").addEventListener("click", () => changeMode(mode));
   get("finish-object").addEventListener("click", () => changeMode(mode));
-  get("ocr-unit").addEventListener("change", () => changeMode(mode));
+  get("unit").addEventListener("change", () => changeMode(mode));
   get("form").addEventListener("submit", (event) => {
     event.preventDefault();
     if (applying || !selected) return;
     const text = get("input").value;
     if (text === selected.text) return changeMode(mode);
-    void apply(selected.targetOcr ? ocrAction(selected, text) : { kind: "text", id: selected.id, text });
+    if (selected.targetOcr) {
+      if (selected.lines) void apply(ocrBlockAction(selected, text));
+      else void apply(ocrAction(selected, text.replace(/\s+/g, " ")));
+    } else if (selected.lines) {
+      const replacementLines = blockLayout(selected.lines, selected.box, text, context.viewport);
+      void apply({ kind: "block", ids: selected.ids, replacementLines });
+    } else {
+      void apply({ kind: "text", id: selected.id, text: text.replace(/\s+/g, " ") });
+    }
   });
   get("transform").addEventListener("click", (event) => {
     const command = event.target.closest("[data-edit-transform]")?.dataset.editTransform;

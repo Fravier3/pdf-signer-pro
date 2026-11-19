@@ -21,17 +21,23 @@ function loadLibrary() {
 function regions(blocks) {
   const lines = [];
   const words = [];
+  const paragraphs = [];
   for (const block of blocks ?? []) {
     for (const paragraph of block.paragraphs) {
+      const paragraphLines = paragraph.lines.filter((line) => line.text.trim())
+        .map((line) => ({ text: line.text.trim(), box: line.bbox, baseline: line.baseline }));
+      lines.push(...paragraphLines);
+      if (paragraphLines.length) {
+        paragraphs.push({ text: paragraphLines.map((line) => line.text).join(" "), box: paragraph.bbox, lines: paragraphLines });
+      }
       for (const line of paragraph.lines) {
-        if (line.text.trim()) lines.push({ text: line.text.trim(), box: line.bbox, baseline: line.baseline });
         for (const word of line.words) {
           if (word.text.trim()) words.push({ text: word.text, box: word.bbox, baseline: line.baseline });
         }
       }
     }
   }
-  return { word: words, line: lines };
+  return { word: words, line: lines, paragraph: paragraphs };
 }
 
 export async function recognizePage(page, onProgress) {
